@@ -10,3 +10,7 @@ Route::get('/', function () {
 Route::get('/generate', function () {
     return view('generate');
 });
+
+Route::get('/templates', function () {
+    return view('templates');
+});
