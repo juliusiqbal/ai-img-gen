@@ -12,7 +12,7 @@
             <label class="form-label">Category</label>
             <div class="row g-3">
                 <div class="col-md-6">
-                    <select x-model="selectedCategoryId" @change="if(selectedCategoryId) { categoryName = ''; fetchTemplates(); }" class="form-select">
+                    <select x-model="selectedCategoryId" @change="if(selectedCategoryId) { categoryName = ''; }" class="form-select">
                         <option value="">Select existing category</option>
                         <template x-for="cat in categories" :key="cat.id">
                             <option :value="cat.id" x-text="cat.name"></option>
@@ -109,54 +109,13 @@
 
     <!-- Generated Templates -->
     <div x-show="generatedTemplates.length > 0" class="mt-4">
-        <h2 class="h4 fw-bold mb-3">Generated Templates</h2>
+       
         <div class="row g-3">
             <template x-for="(template, index) in generatedTemplates" :key="template.id">
                 <div class="col-md-3">
-                    <div class="border rounded p-3 bg-light mb-2 text-center" style="height:200px; display:flex; align-items:center; justify-content:center;">
+                    <div class="border rounded p-3 bg-light text-center" style="height:200px; display:flex; align-items:center; justify-content:center;">
                         <img :src="`${baseUrl}/storage/${template.svg_path}`" alt="Template" class="img-fluid" style="max-height:180px; object-fit:contain;" />
                     </div>
-                    <div class="d-flex gap-2">
-                        <a :href="`/api/templates/${template.id}/download`" class="btn btn-primary btn-sm flex-fill">Download</a>
-                        <input type="checkbox" :value="template.id" x-model="selectedTemplates" class="form-check-input mt-0">
-                    </div>
-                </div>
-            </template>
-        </div>
-        <div class="mt-3 d-flex gap-3">
-            <button @click="downloadSelected()" :disabled="selectedTemplates.length === 0" class="btn btn-primary">
-                Download Selected (<span x-text="selectedTemplates.length"></span>)
-            </button>
-            <button @click="downloadAll()" class="btn btn-success">
-                Download All
-            </button>
-        </div>
-    </div>
-
-    <!-- Existing Templates in Selected Category -->
-    <div x-show="existingTemplates.length > 0" class="mt-4">
-        <div class="d-flex align-items-center justify-content-between mb-3">
-            <h2 class="h4 fw-bold mb-0">Existing Templates <span class="text-muted" x-text="'(' + existingTemplates.length + ')'"></span></h2>
-            <div class="d-flex gap-2">
-                <button @click="downloadSelected()" :disabled="selectedTemplates.length === 0" class="btn btn-primary btn-sm">
-                    Download Selected (<span x-text="selectedTemplates.length"></span>)
-                </button>
-                <a :href="`/api/categories/${selectedCategoryId}/download`" class="btn btn-success btn-sm">
-                    Download All in Category
-                </a>
-            </div>
-        </div>
-        <div class="row g-3">
-            <template x-for="template in existingTemplates" :key="template.id">
-                <div class="col-md-3">
-                    <div class="border rounded p-3 bg-light mb-2 text-center" style="height:200px; display:flex; align-items:center; justify-content:center; overflow:hidden;">
-                        <img :src="`${baseUrl}/storage/${template.svg_path}`" alt="Template" class="img-fluid" style="max-height:180px; object-fit:contain;" />
-                    </div>
-                    <div class="d-flex gap-2 align-items-center">
-                        <a :href="`/api/templates/${template.id}/download`" class="btn btn-primary btn-sm flex-fill">Download</a>
-                        <input type="checkbox" :value="template.id" x-model="selectedTemplates" class="form-check-input mt-0">
-                    </div>
-                    <div class="mt-2 small text-muted text-truncate" x-text="template.svg_path"></div>
                 </div>
             </template>
         </div>
@@ -180,8 +139,6 @@ function generatorForm() {
         loading: false,
         error: null,
         generatedTemplates: [],
-        existingTemplates: [],
-        selectedTemplates: [],
 
         async init() {
             try {
@@ -198,9 +155,6 @@ function generatorForm() {
             } catch (e) {
                 this.error = 'Failed to load categories: ' + e.message;
             }
-            if (this.selectedCategoryId) {
-                this.fetchTemplates();
-            }
         },
 
         openFilePicker() {
@@ -212,29 +166,6 @@ function generatorForm() {
             } catch (e) {}
             const fallback = document.querySelector('[data-upload-input]');
             if (fallback) fallback.click();
-        },
-
-        async fetchTemplates() {
-            if (!this.selectedCategoryId) {
-                this.existingTemplates = [];
-                return;
-            }
-            try {
-                const response = await fetch(`/api/categories/${this.selectedCategoryId}/templates`, {
-                    headers: { 'Accept': 'application/json' }
-                });
-                const contentType = response.headers.get('content-type') || '';
-                if (contentType.includes('application/json')) {
-                    const data = await response.json();
-                    console.log('Fetched templates for category', this.selectedCategoryId, data);
-                    this.existingTemplates = Array.isArray(data) ? data : [];
-                } else {
-                    const text = await response.text();
-                    this.error = 'Failed to load templates: ' + text.slice(0, 300);
-                }
-            } catch (e) {
-                this.error = 'Failed to load templates: ' + e.message;
-            }
         },
 
         handleFileSelect(event) {
@@ -349,9 +280,6 @@ function generatorForm() {
                         // Show newly generated templates immediately
                         this.generatedTemplates = Array.isArray(data.templates) ? data.templates : [];
 
-                        // Also refresh existing templates list for the category
-                        await this.fetchTemplates();
-
                         // If category was newly created, refresh categories list
                         if (!this.selectedCategoryId && this.categoryName) {
                             await this.init();
@@ -373,63 +301,6 @@ function generatorForm() {
                 this.error = 'Generation failed: ' + error.message;
             } finally {
                 this.loading = false;
-            }
-        },
-
-        downloadTemplate(id) {
-            window.location.href = `/api/templates/${id}/download`;
-        },
-
-        async downloadSelected() {
-            if (this.selectedTemplates.length === 0) return;
-
-            const formData = new FormData();
-            this.selectedTemplates.forEach(id => {
-                formData.append('template_ids[]', id);
-            });
-
-            const response = await fetch('/api/templates/download-batch', {
-                method: 'POST',
-                headers: {
-                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content
-                },
-                body: formData
-            });
-
-            if (response.ok) {
-                const blob = await response.blob();
-                const url = window.URL.createObjectURL(blob);
-                const a = document.createElement('a');
-                a.href = url;
-                a.download = 'templates.zip';
-                a.click();
-            }
-        },
-
-        async downloadAll() {
-            if (this.generatedTemplates.length === 0) return;
-            
-            const templateIds = this.generatedTemplates.map(t => t.id);
-            const formData = new FormData();
-            templateIds.forEach(id => {
-                formData.append('template_ids[]', id);
-            });
-
-            const response = await fetch('/api/templates/download-batch', {
-                method: 'POST',
-                headers: {
-                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content
-                },
-                body: formData
-            });
-
-            if (response.ok) {
-                const blob = await response.blob();
-                const url = window.URL.createObjectURL(blob);
-                const a = document.createElement('a');
-                a.href = url;
-                a.download = 'templates.zip';
-                a.click();
             }
         }
     }
