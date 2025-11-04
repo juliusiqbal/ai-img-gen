@@ -29,7 +29,7 @@ class AIImageGenerationService
             // Get image description if image provided
             $imageDescription = null;
             if ($imagePath) {
-                $imageDescription = $this->analyzeImageContext($imagePath);
+                $imageDescription = $this->analyzeImageContext($imagePath, $category->name);
             }
 
             // Generate prompts and images from AI
@@ -130,13 +130,33 @@ class AIImageGenerationService
     }
 
     /**
-     * Analyze image context (basic implementation)
+     * Analyze image context using GPT-4 Vision API
      */
-    private function analyzeImageContext(string $imagePath): string
+    private function analyzeImageContext(string $imagePath, string $category): ?string
     {
-        // This is a placeholder - in a real implementation, you might use
-        // image recognition APIs or vision models to describe the image
-        return "A design template with visual elements";
+        try {
+            // Use GPT-4 Vision API to analyze the uploaded image
+            $description = $this->openAIService->analyzeImageWithVision($imagePath, $category);
+            
+            if ($description) {
+                Log::info('Image analyzed successfully', [
+                    'image_path' => $imagePath,
+                    'category' => $category,
+                ]);
+                return $description;
+            }
+            
+            // Fallback if vision API fails
+            Log::warning('Image analysis failed, using fallback', [
+                'image_path' => $imagePath,
+                'category' => $category,
+            ]);
+            return "A design template with visual elements relevant to {$category}";
+        } catch (\Exception $e) {
+            Log::error('Error analyzing image context: ' . $e->getMessage());
+            // Return a fallback description
+            return "A design template with visual elements relevant to {$category}";
+        }
     }
 }
 
