@@ -31,6 +31,7 @@ class GenerationController extends Controller
         $request->validate([
             'category_id' => 'nullable|exists:categories,id',
             'category_name' => 'nullable|string|max:255',
+            'category_details' => 'nullable|string|max:2000',
             'image' => 'nullable|image|mimes:jpeg,png,webp|max:10240',
             'width' => 'nullable|numeric|min:1',
             'height' => 'nullable|numeric|min:1',
@@ -45,8 +46,19 @@ class GenerationController extends Controller
             // Get or create category
             if ($request->category_id) {
                 $category = Category::findOrFail($request->category_id);
+                // Update category details if provided
+                if ($request->has('category_details') && $request->category_details) {
+                    $category->update(['details' => $request->category_details]);
+                }
             } elseif ($request->category_name) {
-                $category = Category::firstOrCreate(['name' => $request->category_name]);
+                $category = Category::firstOrCreate(
+                    ['name' => $request->category_name],
+                    ['details' => $request->category_details ?? null]
+                );
+                // If category already exists and details are provided, update details
+                if (!$category->wasRecentlyCreated && $request->has('category_details') && $request->category_details) {
+                    $category->update(['details' => $request->category_details]);
+                }
             } else {
                 return response()->json(['error' => 'Category ID or name is required'], 400);
             }

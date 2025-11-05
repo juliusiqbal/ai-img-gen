@@ -12,7 +12,7 @@
             <label class="form-label">Category</label>
             <div class="row g-3">
                 <div class="col-md-6">
-                    <select x-model="selectedCategoryId" @change="if(selectedCategoryId) { categoryName = ''; }" class="form-select">
+                    <select x-model="selectedCategoryId" @change="if(selectedCategoryId) { categoryName = ''; categoryDetails = ''; }" class="form-select">
                         <option value="">Select existing category</option>
                         <template x-for="cat in categories" :key="cat.id">
                             <option :value="cat.id" x-text="cat.name"></option>
@@ -22,6 +22,13 @@
                 <div class="col-md-6">
                     <input type="text" x-model="categoryName" @input="if(categoryName) { selectedCategoryId = ''; }" placeholder="Or enter new category name" class="form-control">
                 </div>
+            </div>
+            <!-- Category Details Field -->
+            <div class="mt-3">
+                <label class="form-label">Category Details (Optional)</label>
+                <textarea x-model="categoryDetails" 
+                          class="form-control" 
+                          rows="4"></textarea>
             </div>
         </div>
 
@@ -130,6 +137,7 @@ function generatorForm() {
         baseUrl: window.location.origin,
         selectedCategoryId: '',
         categoryName: '',
+        categoryDetails: '',
         uploadedImage: null,
         standardSize: '',
         width: '',
@@ -236,8 +244,16 @@ function generatorForm() {
             
             if (this.selectedCategoryId) {
                 formData.append('category_id', this.selectedCategoryId);
+                // If details provided for existing category, send it to update
+                if (this.categoryDetails) {
+                    formData.append('category_details', this.categoryDetails);
+                }
             } else if (this.categoryName) {
                 formData.append('category_name', this.categoryName);
+                // Include details when creating new category
+                if (this.categoryDetails) {
+                    formData.append('category_details', this.categoryDetails);
+                }
             }
 
             if (this.uploadedImage && this.uploadedImage.path) {
@@ -272,18 +288,17 @@ function generatorForm() {
                 if (contentType.includes('application/json')) {
                     const data = await response.json();
                     if (response.ok) {
-                        // Ensure selected category is set to returned category
+                        // Redirect to templates page with success message
+                        const templateCount = Array.isArray(data.templates) ? data.templates.length : 0;
+                        let redirectUrl = `/templates?success=1&count=${templateCount}`;
+                        
+                        // If category is set, include it in redirect
                         if (data.category && data.category.id) {
-                            this.selectedCategoryId = String(data.category.id);
+                            redirectUrl += `&category_id=${data.category.id}`;
                         }
-
-                        // Show newly generated templates immediately
-                        this.generatedTemplates = Array.isArray(data.templates) ? data.templates : [];
-
-                        // If category was newly created, refresh categories list
-                        if (!this.selectedCategoryId && this.categoryName) {
-                            await this.init();
-                        }
+                        
+                        window.location.href = redirectUrl;
+                        return;
                     } else {
                         let errorMsg = data.message || data.error || 'Generation failed';
                         if (errorMsg.includes('billing limit') || errorMsg.includes('quota') || response.status === 402) {

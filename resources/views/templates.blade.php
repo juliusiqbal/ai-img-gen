@@ -7,6 +7,12 @@
     <h1 class="h3 fw-bold mb-4">All Templates</h1>
 
     <div x-data="templatesPage()" x-init="init()" class="bg-white border rounded p-3">
+        <!-- Success Message -->
+        <div x-show="showSuccess" x-transition class="alert alert-success alert-dismissible fade show mb-3" role="alert">
+            <strong>Success!</strong> <span x-text="successMessage"></span>
+            <button type="button" class="btn-close" @click="showSuccess = false" aria-label="Close"></button>
+        </div>
+        
         <!-- Category Filter -->
         <div class="mb-3">
             <label class="form-label">Filter by Category</label>
@@ -105,8 +111,36 @@ function templatesPage() {
         selectedTemplates: [],
         loading: false,
         baseUrl: window.location.origin,
+        showSuccess: false,
+        successMessage: '',
 
         async init() {
+            // Check for category_id in URL first
+            const urlParams = new URLSearchParams(window.location.search);
+            const categoryIdParam = urlParams.get('category_id');
+            if (categoryIdParam) {
+                this.selectedCategoryId = categoryIdParam;
+            }
+            
+            // Check for success message in URL
+            if (urlParams.get('success') === '1') {
+                const count = urlParams.get('count') || '0';
+                this.successMessage = `Successfully generated ${count} template${count !== '1' ? 's' : ''}!`;
+                this.showSuccess = true;
+                
+                // Remove success parameter from URL without reload, keep category_id if present
+                let newUrl = window.location.pathname;
+                if (this.selectedCategoryId) {
+                    newUrl += `?category_id=${this.selectedCategoryId}`;
+                }
+                window.history.replaceState({}, '', newUrl);
+                
+                // Auto-hide after 5 seconds
+                setTimeout(() => {
+                    this.showSuccess = false;
+                }, 5000);
+            }
+            
             await this.loadCategories();
             await this.loadTemplates();
         },
