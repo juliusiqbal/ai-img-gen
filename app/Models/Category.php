@@ -9,7 +9,7 @@ class Category extends Model
 {
     protected $fillable = [
         'name',
-        'description',
+        'details',
     ];
 
     public function templates(): HasMany

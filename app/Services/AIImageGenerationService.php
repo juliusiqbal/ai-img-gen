@@ -36,6 +36,7 @@ class AIImageGenerationService
             $generatedImages = $this->openAIService->generateVariations(
                 $category->name,
                 $imageDescription,
+                $category->details,
                 $templateCount
             );
 
