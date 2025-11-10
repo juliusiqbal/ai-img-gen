@@ -106,4 +106,65 @@ class DownloadController extends Controller
             'Content-Type' => 'application/zip',
         ])->deleteFileAfterSend(true);
     }
+
+    /**
+     * Download all templates (from selected IDs or all)
+     */
+    public function downloadAll(Request $request): BinaryFileResponse
+    {
+        $request->validate([
+            'template_ids' => 'nullable|array',
+            'template_ids.*' => 'exists:templates,id',
+            'project_name' => 'nullable|string',
+        ]);
+
+        // Get templates - either by IDs or by project name
+        if ($request->has('template_ids') && !empty($request->template_ids)) {
+            $templates = Template::whereIn('id', $request->template_ids)->get();
+        } elseif ($request->has('project_name') && $request->project_name) {
+            $templates = Template::where('project_name', $request->project_name)->get();
+        } else {
+            // Download all templates
+            $templates = Template::all();
+        }
+
+        if ($templates->isEmpty()) {
+            abort(400, 'No templates found');
+        }
+
+        // Ensure temp directory exists
+        $tempDir = storage_path('app/temp');
+        if (!is_dir($tempDir)) {
+            mkdir($tempDir, 0755, true);
+        }
+
+        $zipPath = storage_path('app/temp/all_templates_' . time() . '.zip');
+        $zip = new ZipArchive();
+
+        if ($zip->open($zipPath, ZipArchive::CREATE | ZipArchive::OVERWRITE) !== TRUE) {
+            abort(500, 'Cannot create ZIP file');
+        }
+
+        foreach ($templates as $template) {
+            if ($template->svg_path && file_exists(storage_path('app/public/' . $template->svg_path))) {
+                $filename = $template->project_name 
+                    ? $template->project_name . '_' . $template->id . '_' . basename($template->svg_path)
+                    : 'template_' . $template->id . '_' . basename($template->svg_path);
+                $zip->addFile(
+                    storage_path('app/public/' . $template->svg_path),
+                    $filename
+                );
+            }
+        }
+
+        $zip->close();
+
+        $zipName = $request->project_name 
+            ? $request->project_name . '_templates.zip'
+            : 'all_templates.zip';
+
+        return response()->download($zipPath, $zipName, [
+            'Content-Type' => 'application/zip',
+        ])->deleteFileAfterSend(true);
+    }
 }

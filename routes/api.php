@@ -20,11 +20,14 @@ Route::post('/upload', [ImageUploadController::class, 'upload']);
 
 // Generation
 Route::post('/generate', [GenerationController::class, 'generate']);
+Route::post('/generate/preview-prompts', [GenerationController::class, 'previewPrompts']);
+Route::post('/generate/regenerate/{id}', [GenerationController::class, 'regenerateTemplate']);
 Route::get('/jobs/{id}', [GenerationController::class, 'jobStatus']);
 
 // Downloads
 Route::get('/templates/{id}/download', [DownloadController::class, 'downloadTemplate']);
 Route::post('/templates/download-batch', [DownloadController::class, 'downloadBatch']);
+Route::post('/templates/download-all', [DownloadController::class, 'downloadAll']);
 Route::get('/categories/{categoryId}/download', [DownloadController::class, 'downloadCategory']);
 
 

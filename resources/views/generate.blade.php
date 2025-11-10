@@ -34,22 +34,32 @@
 
         <!-- Image Upload -->
         <div class="mb-6">
-            <label class="form-label">Sample Image (Optional)</label>
+            <label class="form-label">Sample Images (Optional - You can upload multiple images)</label>
             <div class="border border-2 border-secondary rounded p-4 text-center" 
                  @drop.prevent="handleFileDrop($event)"
                  @dragover.prevent="$el.classList.add('border-indigo-500')"
                  @dragleave.prevent="$el.classList.remove('border-indigo-500')">
-                <input type="file" @change="handleFileSelect($event)" accept="image/*" class="d-none" x-ref="fileInput" data-upload-input>
-                <div x-show="!uploadedImage" @click="openFilePicker()" class="cursor-pointer">
+                <input type="file" @change="handleFileSelect($event)" accept="image/*" multiple class="d-none" x-ref="fileInput" data-upload-input>
+                <div x-show="uploadedImages.length === 0" @click="openFilePicker()" class="cursor-pointer">
                     <svg class="mx-auto" style="height:48px;width:48px;color:#6c757d" stroke="currentColor" fill="none" viewBox="0 0 48 48">
                         <path d="M28 8H12a4 4 0 00-4 4v20m32-12v8m0 0v8a4 4 0 01-4 4H12a4 4 0 01-4-4v-4m32-4l-3.172-3.172a4 4 0 00-5.656 0L28 28M8 32l9.172-9.172a4 4 0 015.656 0L28 28m0 0l4 4m4-24h8m-4-4v8m-12 4h.02" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
                     </svg>
-                    <p class="mt-2 text-muted small">Click to upload or drag and drop</p>
+                    <p class="mt-2 text-muted small">Click to upload or drag and drop (multiple images supported)</p>
                 </div>
-                <template x-if="uploadedImage">
+                <template x-if="uploadedImages.length > 0">
                     <div class="mt-4">
-                        <img :src="uploadedImage.previewUrl || uploadedImage.url" :alt="uploadedImage.name || 'Uploaded image'" class="img-fluid" style="max-height:200px">
-                        <button @click="uploadedImage = null" class="btn btn-link text-danger p-0 mt-2">Remove</button>
+                        <div class="row g-2">
+                            <template x-for="(img, index) in uploadedImages" :key="index">
+                                <div class="col-md-3 col-6">
+                                    <div class="position-relative">
+                                        <img :src="img.previewUrl || img.url" :alt="img.name || 'Uploaded image'" class="img-fluid rounded" style="max-height:150px; width:100%; object-fit:cover;">
+                                        <button @click="removeImage(index)" class="btn btn-sm btn-danger position-absolute top-0 end-0 m-1" style="padding: 2px 6px;">×</button>
+                                    </div>
+                                    <small class="text-muted d-block mt-1" x-text="img.name" style="overflow:hidden; text-overflow:ellipsis; white-space:nowrap;"></small>
+                                </div>
+                            </template>
+                        </div>
+                        <button @click="uploadedImages = []" class="btn btn-link text-danger p-0 mt-2">Remove All</button>
                     </div>
                 </template>
             </div>
@@ -83,17 +93,168 @@
             </select>
         </div>
 
+        <!-- Structured Design Preferences -->
+        <div class="mb-4 border rounded p-3 bg-light">
+            <h5 class="mb-3">Design Preferences (Optional - For Structured Generation)</h5>
+            
+            <!-- Project Name -->
+            <div class="mb-3">
+                <label class="form-label">Project/Campaign Name</label>
+                <input type="text" x-model="projectName" class="form-control" placeholder="e.g., Summer Sale Campaign">
+            </div>
+
+            <!-- Template Type -->
+            <div class="mb-3">
+                <label class="form-label">Template Type</label>
+                <select x-model="templateType" class="form-select">
+                    <option value="">Select template type</option>
+                    <option value="poster">Poster</option>
+                    <option value="banner">Banner</option>
+                    <option value="brochure">Brochure</option>
+                    <option value="postcard">Postcard</option>
+                    <option value="flyer">Flyer</option>
+                    <option value="social">Social Media Post</option>
+                </select>
+            </div>
+
+            <!-- Keywords -->
+            <div class="mb-3">
+                <label class="form-label">Keywords</label>
+                <input type="text" x-model="keywords" class="form-control" placeholder="e.g., plumbing, plumber, emergency service">
+                <small class="text-muted">Comma-separated keywords describing your design</small>
+            </div>
+
+            <!-- Dynamic Text Blocks -->
+            <div class="mb-3">
+                <label class="form-label">Text Blocks</label>
+                <template x-for="(block, index) in textBlocks" :key="index">
+                    <div class="input-group mb-2">
+                        <input type="text" x-model="textBlocks[index].text" class="form-control" :placeholder="`Text block ${index + 1}`">
+                        <select x-model="textBlocks[index].fontSize" class="form-select" style="max-width:120px">
+                            <option value="small">Small</option>
+                            <option value="medium">Medium</option>
+                            <option value="large">Large</option>
+                        </select>
+                        <button type="button" @click="removeTextBlock(index)" class="btn btn-outline-danger" :disabled="textBlocks.length <= 1">×</button>
+                    </div>
+                </template>
+                <button type="button" @click="addTextBlock()" class="btn btn-sm btn-outline-primary" :disabled="textBlocks.length >= 5">
+                    ➕ Add Text Block
+                </button>
+                <small class="text-muted d-block mt-1">Add 1-5 text blocks for your design</small>
+            </div>
+
+            <!-- Font Family -->
+            <div class="mb-3">
+                <label class="form-label">Font Family</label>
+                <select x-model="fontFamily" class="form-select">
+                    <option value="">Default</option>
+                    <option value="arial">Arial</option>
+                    <option value="helvetica">Helvetica</option>
+                    <option value="serif">Serif</option>
+                    <option value="sans-serif">Sans-serif</option>
+                    <option value="times">Times New Roman</option>
+                    <option value="courier">Courier</option>
+                </select>
+            </div>
+
+            <!-- Color Theme & Background -->
+            <div class="row mb-3">
+                <div class="col-md-6">
+                    <label class="form-label">Color Theme</label>
+                    <select x-model="colorTheme" class="form-select">
+                        <option value="">Default</option>
+                        <option value="blue">Blue</option>
+                        <option value="red">Red</option>
+                        <option value="green">Green</option>
+                        <option value="orange">Orange</option>
+                        <option value="purple">Purple</option>
+                        <option value="black">Black</option>
+                        <option value="white">White</option>
+                    </select>
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label">Background Color</label>
+                    <select x-model="backgroundColor" class="form-select">
+                        <option value="">Default</option>
+                        <option value="white">White</option>
+                        <option value="light-gray">Light Gray</option>
+                        <option value="light-blue">Light Blue</option>
+                        <option value="light-green">Light Green</option>
+                        <option value="cream">Cream</option>
+                    </select>
+                </div>
+            </div>
+
+            <!-- Image Style -->
+            <div class="mb-3">
+                <label class="form-label">Image Style</label>
+                <select x-model="imageStyle" class="form-select">
+                    <option value="">Default</option>
+                    <option value="realistic">Realistic</option>
+                    <option value="professional">Professional</option>
+                    <option value="minimal">Minimal</option>
+                    <option value="modern">Modern</option>
+                    <option value="classic">Classic</option>
+                </select>
+            </div>
+
+            <!-- Preview Prompt Button -->
+            <div class="mb-3">
+                <button type="button" @click="previewPrompts()" :disabled="loading || !canPreviewPrompts()" class="btn btn-outline-info">
+                    👁️ Preview GPT-4 Prompts
+                </button>
+                <small class="text-muted d-block mt-1">See what prompts GPT-4 will generate before creating templates</small>
+            </div>
+
+            <!-- Preview Prompts Display -->
+            <div x-show="previewedPrompts.length > 0" class="mt-3 p-3 bg-white border rounded">
+                <h6>Preview Prompts:</h6>
+                <template x-for="(prompt, index) in previewedPrompts" :key="index">
+                    <div class="mb-2 p-2 bg-light rounded">
+                        <strong>Template <span x-text="index + 1"></span>:</strong>
+                        <p class="mb-0 small" x-text="prompt"></p>
+                    </div>
+                </template>
+            </div>
+        </div>
+
+
         <!-- Template Count -->
         <div class="mb-3">
             <label class="form-label">Number of Templates</label>
-            <input type="number" x-model="templateCount" min="1" max="10" value="4" class="form-control" style="max-width:150px">
+            <input type="number" x-model="templateCount" min="1" max="10" value="1" class="form-control" style="max-width:150px">
         </div>
 
         <!-- Submit Button -->
         <button @click="generateTemplates()" :disabled="loading || (!selectedCategoryId && !categoryName)" class="btn btn-primary w-100">
-            <span x-show="!loading">Generate Templates</span>
-            <span x-show="loading">Generating...</span>
+            <template x-if="!loading">
+                <span>Generate Template</span>
+            </template>
+            <template x-if="loading">
+                <span class="d-flex align-items-center justify-content-center">
+                    <span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
+                    Generating Template...
+                </span>
+            </template>
         </button>
+
+        <!-- Loading Progress Indicator -->
+        <div x-show="loading" class="mt-3">
+            <div class="progress" style="height: 25px;">
+                <div class="progress-bar progress-bar-striped progress-bar-animated" 
+                     role="progressbar" 
+                     style="width: 100%"
+                     aria-valuenow="100" 
+                     aria-valuemin="0" 
+                     aria-valuemax="100">
+                    GPT-4 creating refined prompts → DALL-E 3 generating realistic template...
+                </div>
+            </div>
+            <p class="text-center text-muted small mt-2">
+                This may take 30-60 seconds. Please wait...
+            </p>
+        </div>
 
         <!-- Error Message -->
         <div x-show="error" class="mt-4 p-4 bg-red-50 border border-red-300 rounded-lg">
@@ -139,14 +300,25 @@ function generatorForm() {
         categoryName: '',
         categoryDetails: '',
         uploadedImage: null,
+        uploadedImages: [],
         standardSize: '',
         width: '',
         height: '',
         unit: 'mm',
-        templateCount: 4,
+        templateCount: 1,
         loading: false,
         error: null,
         generatedTemplates: [],
+        // Structured design preferences
+        projectName: '',
+        templateType: '',
+        keywords: '',
+        textBlocks: [{ text: '', fontSize: 'medium' }],
+        fontFamily: '',
+        colorTheme: '',
+        backgroundColor: '',
+        imageStyle: '',
+        previewedPrompts: [],
 
         async init() {
             try {
@@ -177,62 +349,115 @@ function generatorForm() {
         },
 
         handleFileSelect(event) {
-            const file = event.target.files[0];
-            if (file) {
-                // Show local preview immediately to avoid any server 403 issues
-                const previewUrl = URL.createObjectURL(file);
-                this.uploadedImage = {
-                    url: '',
-                    previewUrl,
-                    path: '',
-                    name: file.name,
-                    file: file
-                };
-                this.uploadFile(file);
+            const files = Array.from(event.target.files || []);
+            if (files.length > 0) {
+                files.forEach(file => {
+                    if (file.type.startsWith('image/')) {
+                        const previewUrl = URL.createObjectURL(file);
+                        this.uploadedImages.push({
+                            url: '',
+                            previewUrl,
+                            path: '',
+                            name: file.name,
+                            file: file
+                        });
+                    }
+                });
             }
         },
 
         handleFileDrop(event) {
-            const file = event.dataTransfer.files[0];
-            if (file && file.type.startsWith('image/')) {
-                this.uploadFile(file);
+            const files = Array.from(event.dataTransfer.files || []);
+            files.forEach(file => {
+                if (file.type.startsWith('image/')) {
+                    const previewUrl = URL.createObjectURL(file);
+                    this.uploadedImages.push({
+                        url: '',
+                        previewUrl,
+                        path: '',
+                        name: file.name,
+                        file: file
+                    });
+                }
+            });
+        },
+
+        removeImage(index) {
+            if (this.uploadedImages[index].previewUrl) {
+                URL.revokeObjectURL(this.uploadedImages[index].previewUrl);
+            }
+            this.uploadedImages.splice(index, 1);
+        },
+
+        // Text blocks management
+        addTextBlock() {
+            if (this.textBlocks.length < 5) {
+                this.textBlocks.push({ text: '', fontSize: 'medium' });
             }
         },
 
-        async uploadFile(file) {
-            const formData = new FormData();
-            formData.append('image', file);
+        removeTextBlock(index) {
+            if (this.textBlocks.length > 1) {
+                this.textBlocks.splice(index, 1);
+            }
+        },
+
+        // Check if can preview prompts
+        canPreviewPrompts() {
+            return (this.selectedCategoryId || this.categoryName) && 
+                   (this.templateType || this.keywords || this.textBlocks.some(b => b.text));
+        },
+
+        // Preview GPT-4 prompts
+        async previewPrompts() {
+            if (!this.canPreviewPrompts()) {
+                this.error = 'Please fill in at least category and one design preference (template type, keywords, or text blocks)';
+                return;
+            }
+
+            this.loading = true;
+            this.error = null;
+            this.previewedPrompts = [];
 
             try {
-                const response = await fetch('/api/upload', {
+                const payload = {
+                    category_id: this.selectedCategoryId || null,
+                    category_name: this.categoryName || null,
+                    category_details: this.categoryDetails || null,
+                    template_type: this.templateType || null,
+                    keywords: this.keywords || null,
+                    text_blocks: this.textBlocks.filter(b => b.text).map(b => b.text),
+                    font_family: this.fontFamily || null,
+                    font_sizes: this.textBlocks.map(b => b.fontSize),
+                    color_theme: this.colorTheme || null,
+                    background_color: this.backgroundColor || null,
+                    image_style: this.imageStyle || null,
+                    number_of_templates: this.templateCount,
+                };
+
+                const response = await fetch('/api/generate/preview-prompts', {
                     method: 'POST',
                     headers: {
+                        'Content-Type': 'application/json',
                         'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content,
                         'Accept': 'application/json'
                     },
-                    body: formData
+                    body: JSON.stringify(payload)
                 });
 
-                const contentType = response.headers.get('content-type') || '';
-                if (contentType.includes('application/json')) {
-                    const data = await response.json();
-                    if (response.ok) {
-                        // Keep existing previewUrl; set server URL/path for later use
-                        this.uploadedImage = Object.assign({}, this.uploadedImage || {}, {
-                            url: data.url,
-                            path: data.path
-                        });
-                    } else {
-                        this.error = data.errors ? data.errors.join(', ') : (data.message || 'Upload failed');
-                    }
+                const data = await response.json();
+                if (response.ok && data.prompts) {
+                    this.previewedPrompts = data.prompts;
                 } else {
-                    const text = await response.text();
-                    throw new Error(text.slice(0, 500));
+                    this.error = data.message || data.error || 'Failed to preview prompts';
                 }
-            } catch (error) {
-                this.error = 'Upload failed: ' + error.message;
+            } catch (e) {
+                this.error = 'Failed to preview prompts: ' + e.message;
+            } finally {
+                this.loading = false;
             }
         },
+
 
         async generateTemplates() {
             this.loading = true;
@@ -256,12 +481,16 @@ function generatorForm() {
                 }
             }
 
-            if (this.uploadedImage && this.uploadedImage.path) {
-                // If we have a path from previous upload, we can reference it
-                // But for fresh uploads, we need the file
-                if (this.uploadedImage.file) {
-                    formData.append('image', this.uploadedImage.file);
-                }
+            // Handle multiple images
+            if (this.uploadedImages.length > 0) {
+                this.uploadedImages.forEach((img, index) => {
+                    if (img.file) {
+                        formData.append('images[]', img.file);
+                    }
+                });
+            } else if (this.uploadedImage && this.uploadedImage.file) {
+                // Backward compatibility with single image
+                formData.append('image', this.uploadedImage.file);
             }
 
             if (this.standardSize) {
@@ -273,6 +502,42 @@ function generatorForm() {
             }
 
             formData.append('template_count', this.templateCount);
+            
+            // Always use GPT-4 refined prompts → DALL-E 3 (no method selection needed)
+            formData.append('use_dalle3', '0'); // false = use GPT-4 refined prompts
+
+            // Add structured design preferences if provided
+            if (this.projectName) {
+                formData.append('project_name', this.projectName);
+            }
+            if (this.templateType) {
+                formData.append('template_type', this.templateType);
+            }
+            if (this.keywords) {
+                formData.append('keywords', this.keywords);
+            }
+            const textBlocksData = this.textBlocks.filter(b => b.text).map(b => b.text);
+            if (textBlocksData.length > 0) {
+                textBlocksData.forEach((text, index) => {
+                    formData.append(`text_blocks[${index}]`, text);
+                });
+            }
+            if (this.fontFamily) {
+                formData.append('font_family', this.fontFamily);
+            }
+            const fontSizes = this.textBlocks.map(b => b.fontSize);
+            fontSizes.forEach((size, index) => {
+                formData.append(`font_sizes[${index}]`, size);
+            });
+            if (this.colorTheme) {
+                formData.append('color_theme', this.colorTheme);
+            }
+            if (this.backgroundColor) {
+                formData.append('background_color', this.backgroundColor);
+            }
+            if (this.imageStyle) {
+                formData.append('image_style', this.imageStyle);
+            }
 
             try {
                 const response = await fetch('/api/generate', {
