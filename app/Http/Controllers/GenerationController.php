@@ -83,7 +83,7 @@ class GenerationController extends Controller
             // Handle image upload(s) - support both single and multiple images
             $imagePath = null;
             $imagePaths = [];
-            
+
             if ($request->hasFile('images') && is_array($request->file('images'))) {
                 // Multiple images provided
                 foreach ($request->file('images') as $file) {
@@ -127,7 +127,7 @@ class GenerationController extends Controller
             // Generate templates
             $templateCount = $request->template_count ?? 1;
             $useDalle3 = filter_var($request->use_dalle3 ?? false, FILTER_VALIDATE_BOOLEAN);
-            
+
             // Collect structured design preferences if provided
             $designPreferences = null;
             if ($request->has('template_type') || $request->has('keywords') || $request->has('text_blocks')) {
@@ -164,7 +164,7 @@ class GenerationController extends Controller
                     'project_name' => $request->project_name,
                 ];
             }
-            
+
             $templates = $this->aiService->generateTemplates(
                 $category,
                 $imagePath,
@@ -189,7 +189,7 @@ class GenerationController extends Controller
             ], 201);
         } catch (\Exception $e) {
             DB::rollBack();
-            
+
             if (isset($job)) {
                 $job->update([
                     'status' => 'failed',
@@ -200,16 +200,16 @@ class GenerationController extends Controller
             // Parse OpenAI error messages for user-friendly responses
             $errorMessage = $e->getMessage();
             $statusCode = 500;
-            
-            if (str_contains($errorMessage, 'Billing hard limit has been reached') || 
+
+            if (str_contains($errorMessage, 'Billing hard limit has been reached') ||
                 str_contains($errorMessage, 'billing_hard_limit_reached')) {
                 $errorMessage = 'OpenAI API billing limit reached. Please add credits to your OpenAI account or check your billing settings.';
                 $statusCode = 402; // Payment Required
-            } elseif (str_contains($errorMessage, 'Invalid API key') || 
+            } elseif (str_contains($errorMessage, 'Invalid API key') ||
                       str_contains($errorMessage, 'authentication')) {
                 $errorMessage = 'Invalid OpenAI API key. Please check your API key in the .env file.';
                 $statusCode = 401;
-            } elseif (str_contains($errorMessage, 'rate limit') || 
+            } elseif (str_contains($errorMessage, 'rate limit') ||
                       str_contains($errorMessage, 'rate_limit_exceeded')) {
                 $errorMessage = 'API rate limit exceeded. Please try again in a few moments.';
                 $statusCode = 429;
@@ -256,7 +256,7 @@ class GenerationController extends Controller
             // Get category info
             $categoryName = '';
             $categoryDetails = '';
-            
+
             if ($request->category_id) {
                 $category = Category::findOrFail($request->category_id);
                 $categoryName = $category->name;
@@ -324,7 +324,7 @@ class GenerationController extends Controller
 
             // Get original design preferences or use new ones
             $designPreferences = $template->design_preferences ?? [];
-            
+
             // Update with new preferences if provided
             if ($request->has('template_type')) {
                 $designPreferences['template_type'] = $request->template_type;
@@ -376,7 +376,7 @@ class GenerationController extends Controller
         } catch (\Exception $e) {
             DB::rollBack();
             Log::error('Template regeneration error: ' . $e->getMessage());
-            
+
             return response()->json([
                 'error' => 'Regeneration failed',
                 'message' => $e->getMessage(),

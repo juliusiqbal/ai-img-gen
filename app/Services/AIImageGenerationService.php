@@ -31,16 +31,16 @@ class AIImageGenerationService
         try {
             // Determine if we have uploaded images
             $hasUploadedImages = !empty($imagePaths) || !empty($imagePath);
-            
+
             // Both options use DALL-E 3, but with different prompt quality
             $uploadedImagePaths = $hasUploadedImages ? (!empty($imagePaths) ? $imagePaths : [$imagePath]) : [];
             $imageDescription = null;
-            
+
             // If images uploaded, analyze them for context (for both options)
             if (!empty($uploadedImagePaths)) {
                 $imageDescription = $this->analyzeMultipleImagesContext($uploadedImagePaths, $category->name);
             }
-            
+
             // Check if structured design preferences are provided
             $hasStructuredPreferences = !empty($designPreferences) && (
                 !empty($designPreferences['template_type']) ||
@@ -87,7 +87,7 @@ class AIImageGenerationService
                     'category' => $category->name,
                     'has_images' => $hasUploadedImages,
                 ]);
-                
+
                 // Generate with standard prompts (minimal GPT-4 refinement)
                 $generatedImages = $this->openAIService->generateVariations(
                     $category->name,
@@ -103,7 +103,7 @@ class AIImageGenerationService
                     'category' => $category->name,
                     'has_images' => $hasUploadedImages,
                 ]);
-                
+
                 // Generate with GPT-4 enhanced prompt refinement (like ChatGPT)
                 $generatedImages = $this->openAIService->generateVariations(
                     $category->name,
@@ -157,7 +157,7 @@ class AIImageGenerationService
                     $imgDimensions = $this->imageService->getImageDimensions($storedPath);
 
                     // Calculate SVG dimensions
-                    $svgDimensions = $printingDimensions 
+                    $svgDimensions = $printingDimensions
                         ? $this->dimensionCalculator->calculateSVGViewBox($printingDimensions, $aspectRatio)
                         : ['width' => $imgDimensions['width'], 'height' => $imgDimensions['height'], 'viewBox' => "0 0 {$imgDimensions['width']} {$imgDimensions['height']}"];
 
@@ -228,7 +228,7 @@ class AIImageGenerationService
         try {
             // Use GPT-4 Vision API to analyze multiple uploaded images
             $description = $this->openAIService->analyzeMultipleImagesWithVision($imagePaths, $category);
-            
+
             if ($description) {
                 Log::info('Multiple images analyzed successfully', [
                     'image_count' => count($imagePaths),
@@ -236,7 +236,7 @@ class AIImageGenerationService
                 ]);
                 return $description;
             }
-            
+
             // Fallback if vision API fails
             Log::warning('Multiple image analysis failed, using fallback', [
                 'image_count' => count($imagePaths),
@@ -258,7 +258,7 @@ class AIImageGenerationService
         try {
             // Use GPT-4 Vision API to analyze the uploaded image
             $description = $this->openAIService->analyzeImageWithVision($imagePath, $category);
-            
+
             if ($description) {
                 Log::info('Image analyzed successfully', [
                     'image_path' => $imagePath,
@@ -266,7 +266,7 @@ class AIImageGenerationService
                 ]);
                 return $description;
             }
-            
+
             // Fallback if vision API fails
             Log::warning('Image analysis failed, using fallback', [
                 'image_path' => $imagePath,

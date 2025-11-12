@@ -147,7 +147,7 @@ class DownloadController extends Controller
 
         foreach ($templates as $template) {
             if ($template->svg_path && file_exists(storage_path('app/public/' . $template->svg_path))) {
-                $filename = $template->project_name 
+                $filename = $template->project_name
                     ? $template->project_name . '_' . $template->id . '_' . basename($template->svg_path)
                     : 'template_' . $template->id . '_' . basename($template->svg_path);
                 $zip->addFile(
@@ -159,7 +159,7 @@ class DownloadController extends Controller
 
         $zip->close();
 
-        $zipName = $request->project_name 
+        $zipName = $request->project_name
             ? $request->project_name . '_templates.zip'
             : 'all_templates.zip';
 

@@ -38,7 +38,7 @@ class ImageProcessingService
                 $file,
                 basename($path)
             );
-            
+
             if (!$stored) {
                 Log::error("Storage::putFileAs returned false", [
                     'path' => $path,
@@ -51,7 +51,7 @@ class ImageProcessingService
             $exists = Storage::disk('public')->exists($path);
             $fullStoragePath = storage_path('app/public/' . $path);
             $fileExists = file_exists($fullStoragePath);
-            
+
             if (!$exists || !$fileExists) {
                 Log::error("File not found after storage", [
                     'path' => $path,
@@ -222,7 +222,7 @@ class ImageProcessingService
             try {
                 // Create canvas
                 $canvas = imagecreatetruecolor($canvasWidth, $canvasHeight);
-                
+
                 // Create attractive background
                 $this->createAttractiveBackground($canvas, $canvasWidth, $canvasHeight, $i);
 
@@ -237,7 +237,7 @@ class ImageProcessingService
                 // Save template
                 $outputPath = 'generated/gpt4_template_' . uniqid() . '_' . time() . '_' . $i . '.png';
                 $outputFullPath = storage_path('app/public/' . $outputPath);
-                
+
                 $dir = dirname($outputFullPath);
                 if (!is_dir($dir)) {
                     mkdir($dir, 0755, true);
@@ -280,7 +280,7 @@ class ImageProcessingService
             try {
                 // Create canvas
                 $canvas = imagecreatetruecolor($canvasWidth, $canvasHeight);
-                
+
                 // Create attractive background (gradient or solid color based on variation)
                 $this->createAttractiveBackground($canvas, $canvasWidth, $canvasHeight, $i);
 
@@ -295,7 +295,7 @@ class ImageProcessingService
                 // Save template
                 $outputPath = 'generated/composite_' . uniqid() . '_' . time() . '_' . $i . '.png';
                 $outputFullPath = storage_path('app/public/' . $outputPath);
-                
+
                 $dir = dirname($outputFullPath);
                 if (!is_dir($dir)) {
                     mkdir($dir, 0755, true);
@@ -330,11 +330,11 @@ class ImageProcessingService
             2 => ['r' => 252, 'g' => 252, 'b' => 255], // Very light blue
             3 => ['r' => 255, 'g' => 252, 'b' => 248], // Very light warm
         ];
-        
+
         $style = $bgStyles[$variationIndex % count($bgStyles)];
         $bgColor = imagecolorallocate($canvas, $style['r'], $style['g'], $style['b']);
         imagefill($canvas, 0, 0, $bgColor);
-        
+
         // Add subtle decorative elements
         $this->addDecorativeElements($canvas, $canvasWidth, $canvasHeight, $variationIndex);
     }
@@ -346,12 +346,12 @@ class ImageProcessingService
     {
         // Add subtle decorative lines or shapes
         $decorColor = imagecolorallocate($canvas, 230, 230, 235);
-        
+
         // Top decorative line
         imageline($canvas, 0, 2, $canvasWidth, 2, $decorColor);
         // Bottom decorative line
         imageline($canvas, 0, $canvasHeight - 3, $canvasWidth, $canvasHeight - 3, $decorColor);
-        
+
         // Add corner accents for some variations
         if ($variationIndex % 2 === 0) {
             $accentColor = imagecolorallocate($canvas, 240, 240, 245);
@@ -376,7 +376,7 @@ class ImageProcessingService
         $images = [];
         foreach ($imagePaths as $path) {
             $fullPath = storage_path('app/public/' . $path);
-            
+
             if (!file_exists($fullPath)) {
                 Log::error("Image file not found: {$fullPath} (path: {$path})");
                 continue;
@@ -417,10 +417,10 @@ class ImageProcessingService
 
         // Use actual loaded image count, not path count
         $loadedImageCount = count($images);
-        
+
         // Store image positions for adding frames/shadows
         $imagePositions = [];
-        
+
         // Calculate positions first (without drawing)
         if ($loadedImageCount === 1) {
             $imagePositions = $this->calculateSingleImageLayout($images[0], $canvasWidth, $canvasHeight, $variationIndex);
@@ -429,12 +429,12 @@ class ImageProcessingService
         } else {
             $imagePositions = $this->calculateMultipleImagesLayout($images, $canvasWidth, $canvasHeight, $variationIndex);
         }
-        
+
         // Draw shadows first (behind images)
         foreach ($imagePositions as $pos) {
             $this->addImageShadow($canvas, $pos['x'], $pos['y'], $pos['width'], $pos['height']);
         }
-        
+
         // Draw images
         if ($loadedImageCount === 1) {
             $this->drawSingleImage($canvas, $imagePositions[0]);
@@ -443,7 +443,7 @@ class ImageProcessingService
         } else {
             $this->drawMultipleImages($canvas, $imagePositions);
         }
-        
+
         // Add professional frames (on top)
         foreach ($imagePositions as $pos) {
             $this->addImageFrame($canvas, $pos['x'], $pos['y'], $pos['width'], $pos['height']);
@@ -462,7 +462,7 @@ class ImageProcessingService
     {
         $shadowOffset = 8;
         $shadowBlur = 12;
-        
+
         // Draw shadow (multiple rectangles for blur effect)
         for ($i = 0; $i < $shadowBlur; $i++) {
             $alpha = (int)(70 - ($i * 5));
@@ -489,7 +489,7 @@ class ImageProcessingService
         $borderWidth = 3;
         $borderColor = imagecolorallocate($canvas, 240, 240, 240);
         $innerBorderColor = imagecolorallocate($canvas, 255, 255, 255);
-        
+
         // Outer border
         imagerectangle($canvas, $x - $borderWidth, $y - $borderWidth, $x + $width + $borderWidth, $y + $height + $borderWidth, $borderColor);
         // Inner border for depth
@@ -507,9 +507,9 @@ class ImageProcessingService
             2 => 'offset_left',     // Left aligned, offset
             3 => 'offset_right',    // Right aligned, offset
         ];
-        
+
         $layout = $layouts[$variationIndex % count($layouts)];
-        
+
         switch ($layout) {
             case 'full_bleed':
                 // Full width, top portion
@@ -523,7 +523,7 @@ class ImageProcessingService
                 $x = 0;
                 $y = 0;
                 break;
-                
+
             case 'centered':
                 // Centered with padding
                 $padding = 40;
@@ -536,7 +536,7 @@ class ImageProcessingService
                 $x = (int)(($canvasWidth - $targetWidth) / 2);
                 $y = (int)(($canvasHeight - $targetHeight) / 2);
                 break;
-                
+
             case 'offset_left':
                 // Left aligned with offset
                 $offsetX = 30;
@@ -550,7 +550,7 @@ class ImageProcessingService
                 $x = $offsetX;
                 $y = $offsetY;
                 break;
-                
+
             case 'offset_right':
                 // Right aligned with offset
                 $offsetX = 30;
@@ -565,7 +565,7 @@ class ImageProcessingService
                 $y = $offsetY;
                 break;
         }
-        
+
         // Return position for frame/shadow (with padding for frame)
         $framePadding = 3;
         return [['x' => $x, 'y' => $y, 'width' => $targetWidth, 'height' => $targetHeight, 'img' => $img]];
@@ -585,7 +585,7 @@ class ImageProcessingService
         $imageY = $position['y'] + $framePadding;
         $imageWidth = $position['width'] - ($framePadding * 2);
         $imageHeight = $position['height'] - ($framePadding * 2);
-        
+
         imagecopyresampled($canvas, $img['resource'], $imageX, $imageY, 0, 0, $imageWidth, $imageHeight, $img['width'], $img['height']);
     }
 
@@ -600,11 +600,11 @@ class ImageProcessingService
             2 => 'overlapping',        // Overlapping with offset
             3 => 'diagonal',          // Diagonal arrangement
         ];
-        
+
         $layout = $layouts[$variationIndex % count($layouts)];
         $img1 = $images[0];
         $img2 = $images[1];
-        
+
         switch ($layout) {
             case 'l_shape':
                 // Professional L-shape layout (like the example)
@@ -617,7 +617,7 @@ class ImageProcessingService
                 }
                 $x1 = 30;
                 $y1 = 30;
-                
+
                 // Bottom-left image (smaller, creates L-shape)
                 $targetWidth2 = (int)($canvasWidth * 0.48);
                 $targetHeight2 = (int)($img2['height'] * $targetWidth2 / $img2['width']);
@@ -627,17 +627,17 @@ class ImageProcessingService
                 }
                 $x2 = 30;
                 $y2 = $y1 + $targetHeight1 + 20; // Position below first image
-                
+
                 return [
                     ['x' => $x1, 'y' => $y1, 'width' => $targetWidth1, 'height' => $targetHeight1, 'img' => $img1],
                     ['x' => $x2, 'y' => $y2, 'width' => $targetWidth2, 'height' => $targetHeight2, 'img' => $img2],
                 ];
-                
+
             case 'split_vertical':
                 // Left/Right with gap
                 $gap = 20;
                 $halfWidth = (int)(($canvasWidth - $gap) / 2);
-                
+
                 // Left image
                 $targetWidth1 = $halfWidth;
                 $targetHeight1 = (int)($img1['height'] * $targetWidth1 / $img1['width']);
@@ -647,7 +647,7 @@ class ImageProcessingService
                 }
                 $x1 = 0;
                 $y1 = (int)(($canvasHeight - $targetHeight1) / 2);
-                
+
                 // Right image
                 $targetWidth2 = $halfWidth;
                 $targetHeight2 = (int)($img2['height'] * $targetWidth2 / $img2['width']);
@@ -657,17 +657,17 @@ class ImageProcessingService
                 }
                 $x2 = $halfWidth + $gap;
                 $y2 = (int)(($canvasHeight - $targetHeight2) / 2);
-                
+
                 return [
                     ['x' => $x1, 'y' => $y1, 'width' => $targetWidth1, 'height' => $targetHeight1, 'img' => $img1],
                     ['x' => $x2, 'y' => $y2, 'width' => $targetWidth2, 'height' => $targetHeight2, 'img' => $img2],
                 ];
-                
+
             case 'split_horizontal':
                 // Top/Bottom with gap
                 $gap = 20;
                 $halfHeight = (int)(($canvasHeight - $gap) / 2);
-                
+
                 // Top image
                 $targetWidth1 = $canvasWidth;
                 $targetHeight1 = (int)($img1['height'] * $targetWidth1 / $img1['width']);
@@ -677,7 +677,7 @@ class ImageProcessingService
                 }
                 $x1 = (int)(($canvasWidth - $targetWidth1) / 2);
                 $y1 = 0;
-                
+
                 // Bottom image
                 $targetWidth2 = $canvasWidth;
                 $targetHeight2 = (int)($img2['height'] * $targetWidth2 / $img2['width']);
@@ -687,12 +687,12 @@ class ImageProcessingService
                 }
                 $x2 = (int)(($canvasWidth - $targetWidth2) / 2);
                 $y2 = $halfHeight + $gap;
-                
+
                 return [
                     ['x' => $x1, 'y' => $y1, 'width' => $targetWidth1, 'height' => $targetHeight1, 'img' => $img1],
                     ['x' => $x2, 'y' => $y2, 'width' => $targetWidth2, 'height' => $targetHeight2, 'img' => $img2],
                 ];
-                
+
             case 'overlapping':
                 // Overlapping with offset - larger image behind, smaller in front
                 // Background image (larger)
@@ -704,7 +704,7 @@ class ImageProcessingService
                 }
                 $x1 = (int)(($canvasWidth - $targetWidth1) / 2) - 30;
                 $y1 = (int)(($canvasHeight - $targetHeight1) / 2) - 20;
-                
+
                 // Foreground image (smaller, offset)
                 $targetWidth2 = (int)($canvasWidth * 0.5);
                 $targetHeight2 = (int)($img2['height'] * $targetWidth2 / $img2['width']);
@@ -714,12 +714,12 @@ class ImageProcessingService
                 }
                 $x2 = (int)(($canvasWidth - $targetWidth2) / 2) + 30;
                 $y2 = (int)(($canvasHeight - $targetHeight2) / 2) + 20;
-                
+
                 return [
                     ['x' => $x1, 'y' => $y1, 'width' => $targetWidth1, 'height' => $targetHeight1, 'img' => $img1],
                     ['x' => $x2, 'y' => $y2, 'width' => $targetWidth2, 'height' => $targetHeight2, 'img' => $img2],
                 ];
-                
+
             case 'diagonal':
                 // Diagonal arrangement
                 // Top-left image
@@ -731,7 +731,7 @@ class ImageProcessingService
                 }
                 $x1 = 40;
                 $y1 = 40;
-                
+
                 // Bottom-right image
                 $targetWidth2 = (int)($canvasWidth * 0.55);
                 $targetHeight2 = (int)($img2['height'] * $targetWidth2 / $img2['width']);
@@ -741,13 +741,13 @@ class ImageProcessingService
                 }
                 $x2 = $canvasWidth - $targetWidth2 - 40;
                 $y2 = $canvasHeight - $targetHeight2 - 40;
-                
+
                 return [
                     ['x' => $x1, 'y' => $y1, 'width' => $targetWidth1, 'height' => $targetHeight1, 'img' => $img1],
                     ['x' => $x2, 'y' => $y2, 'width' => $targetWidth2, 'height' => $targetHeight2, 'img' => $img2],
                 ];
         }
-        
+
         return [];
     }
 
@@ -764,7 +764,7 @@ class ImageProcessingService
                 $imageY = $pos['y'] + $framePadding;
                 $imageWidth = $pos['width'] - ($framePadding * 2);
                 $imageHeight = $pos['height'] - ($framePadding * 2);
-                
+
                 imagecopyresampled($canvas, $img['resource'], $imageX, $imageY, 0, 0, $imageWidth, $imageHeight, $img['width'], $img['height']);
             }
         }
@@ -777,7 +777,7 @@ class ImageProcessingService
     {
         $imageCount = count($images);
         $positions = [];
-        
+
         // For 3 images, create professional L-shape layout (like the example)
         if ($imageCount === 3 && $variationIndex % 2 === 0) {
             // Top-left image (larger)
@@ -789,7 +789,7 @@ class ImageProcessingService
                 $targetWidth1 = (int)($img1['width'] * $targetHeight1 / $img1['height']);
             }
             $positions[] = ['x' => 30, 'y' => 30, 'width' => $targetWidth1, 'height' => $targetHeight1, 'img' => $img1];
-            
+
             // Top-right image (smaller)
             $img2 = $images[1];
             $targetWidth2 = (int)($canvasWidth * 0.45);
@@ -799,7 +799,7 @@ class ImageProcessingService
                 $targetWidth2 = (int)($img2['width'] * $targetHeight2 / $img2['height']);
             }
             $positions[] = ['x' => 30 + $targetWidth1 + 20, 'y' => 30, 'width' => $targetWidth2, 'height' => $targetHeight2, 'img' => $img2];
-            
+
             // Bottom-left image (creates L-shape)
             $img3 = $images[2];
             $targetWidth3 = (int)($canvasWidth * 0.48);
@@ -809,10 +809,10 @@ class ImageProcessingService
                 $targetWidth3 = (int)($img3['width'] * $targetHeight3 / $img3['height']);
             }
             $positions[] = ['x' => 30, 'y' => 30 + $targetHeight1 + 20, 'width' => $targetWidth3, 'height' => $targetHeight3, 'img' => $img3];
-            
+
             return $positions;
         }
-        
+
         // For other cases, use grid layout
         $cols = $imageCount <= 4 ? 2 : 3;
         $rows = (int)ceil($imageCount / $cols);
@@ -823,7 +823,7 @@ class ImageProcessingService
         foreach ($images as $index => $img) {
             $col = $index % $cols;
             $row = (int)($index / $cols);
-            
+
             $x = $gap + ($col * ($cellWidth + $gap));
             $y = $gap + ($row * ($cellHeight + $gap));
 
@@ -838,10 +838,10 @@ class ImageProcessingService
 
             $x += (int)(($cellWidth - $targetWidth) / 2);
             $y += (int)(($cellHeight - $targetHeight) / 2);
-            
+
             $positions[] = ['x' => $x, 'y' => $y, 'width' => $targetWidth, 'height' => $targetHeight, 'img' => $img];
         }
-        
+
         return $positions;
     }
 
@@ -858,7 +858,7 @@ class ImageProcessingService
                 $imageY = $pos['y'] + $framePadding;
                 $imageWidth = $pos['width'] - ($framePadding * 2);
                 $imageHeight = $pos['height'] - ($framePadding * 2);
-                
+
                 imagecopyresampled($canvas, $img['resource'], $imageX, $imageY, 0, 0, $imageWidth, $imageHeight, $img['width'], $img['height']);
             }
         }
@@ -875,15 +875,15 @@ class ImageProcessingService
 
         // Categorize text elements by importance for size hierarchy
         $textCategories = $this->categorizeTextElements($textElements);
-        
+
         // Position text strategically - create professional layout
         $layoutStrategy = $variationIndex % 4;
-        
+
         // Each text element gets its own professional text box
         $yStart = 0;
         $xStart = 0;
         $spacing = 15;
-        
+
         switch ($layoutStrategy) {
             case 0: // Right side vertical stack (overlapping bottom image)
                 $xStart = (int)($canvasWidth * 0.65);
@@ -902,29 +902,29 @@ class ImageProcessingService
                 $yStart = (int)($canvasHeight * 0.3);
                 break;
         }
-        
+
         $currentY = $yStart;
-        
+
         // Draw each text element as a separate professional box
         foreach ($textElements as $index => $text) {
             // Determine font size based on importance
             $isImportant = $this->isImportantText($text, $textCategories);
             $font = $isImportant ? 5 : 5; // Use largest font, but adjust spacing for emphasis
             $fontMultiplier = $isImportant ? 1.4 : 1.0; // Make important text appear larger
-            
+
             // Calculate text dimensions
             $textWidth = imagefontwidth($font) * strlen($text);
             $textHeight = imagefontheight($font);
-            
+
             // Padding for text box
             $padding = $isImportant ? 20 : 15;
             $boxWidth = (int)($textWidth * $fontMultiplier) + ($padding * 2);
             $boxHeight = (int)($textHeight * $fontMultiplier) + ($padding * 2);
-            
+
             // Position box (right-aligned for professional look)
             $boxX = $xStart;
             $boxY = $currentY;
-            
+
             // Add professional drop shadow (stronger shadow)
             $shadowOffset = 6;
             $shadowBlur = 8;
@@ -942,27 +942,27 @@ class ImageProcessingService
                     $shadowColor
                 );
             }
-            
+
             // Draw solid white background
             $bgColor = imagecolorallocate($canvas, 255, 255, 255);
             imagefilledrectangle($canvas, $boxX, $boxY, $boxX + $boxWidth, $boxY + $boxHeight, $bgColor);
-            
+
             // Add professional black border (like the example)
             $borderColor = imagecolorallocate($canvas, 0, 0, 0);
             $borderWidth = 2;
-            
+
             // Outer border
             imagerectangle($canvas, $boxX, $boxY, $boxX + $boxWidth, $boxY + $boxHeight, $borderColor);
             // Inner border for depth
             imagerectangle($canvas, $boxX + 1, $boxY + 1, $boxX + $boxWidth - 1, $boxY + $boxHeight - 1, $borderColor);
-            
+
             // Calculate text position (centered in box)
             $textX = $boxX + $padding;
             $textY = $boxY + $padding + (int)($textHeight * ($fontMultiplier - 1) / 2);
-            
+
             // Draw text (black, horizontal, no rotation)
             $textColor = imagecolorallocate($canvas, 0, 0, 0);
-            
+
             // For larger text effect, draw text multiple times with slight offset (simulate bold)
             if ($isImportant) {
                 for ($i = 0; $i < 2; $i++) {
@@ -971,7 +971,7 @@ class ImageProcessingService
             } else {
                 imagestring($canvas, $font, $textX, $textY, $text, $textColor);
             }
-            
+
             // Move to next position
             $currentY += $boxHeight + $spacing;
         }
@@ -986,7 +986,7 @@ class ImageProcessingService
             'important' => [], // Discounts, percentages, key offers
             'normal' => [],    // Regular text
         ];
-        
+
         foreach ($textElements as $text) {
             // Check if text contains discount/percentage (high importance)
             if (preg_match('/\d+\s*%|off|discount|sale|special/i', $text)) {
@@ -995,7 +995,7 @@ class ImageProcessingService
                 $categories['normal'][] = $text;
             }
         }
-        
+
         return $categories;
     }
 
