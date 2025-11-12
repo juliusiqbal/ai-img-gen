@@ -288,61 +288,6 @@ class OpenAIService
     }
 
     /**
-     * Get category-specific prompt template
-     */
-    private function getCategorySpecificPrompt(string $category): array
-    {
-        $categoryLower = strtolower(trim($category));
-        
-        // Category-specific templates
-        $templates = [
-            'restaurant' => [
-                'theme' => 'culinary themes, food service, dining, hospitality',
-                'elements' => 'utensils, dishes, plates, food, beverages, restaurant interiors, kitchen equipment, chef elements',
-                'forbidden' => 'DO NOT include monuments, historical landmarks, travel destinations, or any non-food related imagery',
-                'colors' => 'warm, appetizing colors like reds, oranges, warm whites, or professional blues and greens',
-            ],
-            'business' => [
-                'theme' => 'professional, corporate, modern office environment',
-                'elements' => 'office equipment, charts, graphs, handshakes, buildings with glass facades, technology, professional settings',
-                'forbidden' => 'DO NOT include food items, restaurants, or unrelated leisure activities',
-                'colors' => 'professional tones such as blues, greys, whites, with accent colors',
-            ],
-            'holiday' => [
-                'theme' => 'travel, vacation, tourism, leisure activities',
-                'elements' => 'airplanes, travel destinations, landmarks, beaches, hotels, suitcases, maps, travel experiences',
-                'forbidden' => 'DO NOT include food items, restaurant imagery, or domestic/home items unrelated to travel',
-                'colors' => 'vibrant travel colors, blues (sky/sea), greens (nature), warm destination colors',
-            ],
-            'travel' => [
-                'theme' => 'travel, vacation, tourism, leisure activities, destinations',
-                'elements' => 'airplanes, travel destinations, landmarks, beaches, hotels, suitcases, maps, travel experiences, city skylines, temples, natural landscapes',
-                'forbidden' => 'DO NOT include food items, restaurant imagery, or domestic/home items unrelated to travel',
-                'colors' => 'vibrant travel colors, blues (sky/sea), greens (nature), warm destination colors, sunset/sunrise tones',
-            ],
-            'garden' => [
-                'theme' => 'gardening, plants, outdoor spaces, nature',
-                'elements' => 'plants, flowers, gardening tools, pots, leaves, outdoor settings, garden layouts',
-                'forbidden' => 'DO NOT include historical monuments, buildings, or travel destinations unrelated to gardening',
-                'colors' => 'greens, earth tones, natural colors, vibrant flower colors',
-            ],
-        ];
-
-        // Return specific template or generic fallback
-        if (isset($templates[$categoryLower])) {
-            return $templates[$categoryLower];
-        }
-
-        // Generic fallback
-        return [
-            'theme' => "professional {$category} theme",
-            'elements' => "relevant visual elements for {$category}",
-            'forbidden' => "DO NOT include elements unrelated to {$category}",
-            'colors' => 'professional, modern color palette',
-        ];
-    }
-
-    /**
      * Refine prompt using GPT-4 for complex requests
      */
     private function refinePromptWithGPT4(string $category, ?string $categoryDetails, ?string $imageDescription = null, int $variationIndex = 0, array $imagePaths = []): ?string
@@ -494,9 +439,6 @@ Return ONLY the optimized prompt text, nothing else.";
         // For DALL-E 3 option (forceGPT4Refinement = false), use basic prompts only
         // Skip GPT-4 refinement to keep prompts simpler and more direct
         
-        // Basic prompt generation (fallback or simple requests)
-        $categoryTemplate = $this->getCategorySpecificPrompt($category);
-        
         // Check if this is an advertisement template request
         $isAdvertisement = $this->isAdvertisementRequest($categoryDetails, $category);
         
@@ -534,10 +476,10 @@ Return ONLY the optimized prompt text, nothing else.";
             $prompt .= "The template should reflect these specific characteristics and incorporate all elements described in the details. ";
             $prompt .= "Use the EXACT text and language from the details - do not translate or modify. ";
         } else {
-            // Use generic category template if no details provided
-            $prompt .= "MUST be relevant to {$category} and include {$categoryTemplate['theme']}. ";
-            $prompt .= "Include visual elements such as: {$categoryTemplate['elements']}. ";
-            $prompt .= "{$categoryTemplate['forbidden']}. ";
+            // Use generic category description if no details provided
+            $prompt .= "MUST be relevant to {$category} and include professional {$category} theme. ";
+            $prompt .= "Include relevant visual elements for {$category}. ";
+            $prompt .= "DO NOT include elements unrelated to {$category}. ";
         }
         
         // Add image description if available
@@ -576,9 +518,9 @@ Return ONLY the optimized prompt text, nothing else.";
             $prompt .= "The overall photograph should look like a professional advertisement photograph suitable for print advertising, posters, or promotional materials. ";
         }
         
-        // Only add generic color template if no category details provided
+        // Only add generic color description if no category details provided
         if (empty($categoryDetails)) {
-            $prompt .= "Use {$categoryTemplate['colors']} in natural, realistic tones. ";
+            $prompt .= "Use professional, modern color palette in natural, realistic tones. ";
         }
         
         $prompt .= "Professional typography should be incorporated. ";

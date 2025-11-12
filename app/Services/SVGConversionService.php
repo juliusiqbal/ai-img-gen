@@ -23,13 +23,13 @@ class SVGConversionService
         // Check if potrace is available (Windows uses 'where', Unix uses 'which')
         $potraceCheck = new Process(['where', 'potrace']);
         $potraceCheck->run();
-        
+
         if (!$potraceCheck->isSuccessful()) {
             // Try 'which' on Unix systems
             $potraceCheck = new Process(['which', 'potrace']);
             $potraceCheck->run();
         }
-        
+
         if (!$potraceCheck->isSuccessful()) {
             // Fallback: create simple SVG wrapper
             return $this->createSimpleSVGWrapper($fullImagePath, $fullOutputPath, $options);
@@ -37,7 +37,7 @@ class SVGConversionService
 
         // First convert to PBM format (Potrace input)
         $pbmPath = str_replace('.svg', '.pbm', $fullOutputPath);
-        
+
         try {
             // Use ImageMagick to convert to PBM
             $imagemagickProcess = new Process([
@@ -171,14 +171,14 @@ class SVGConversionService
     {
         // Basic optimization - remove comments and whitespace
         $content = file_get_contents($svgPath);
-        
+
         // Remove XML comments
         $content = preg_replace('/<!--.*?-->/s', '', $content);
-        
+
         // Remove extra whitespace
         $content = preg_replace('/\s+/', ' ', $content);
         $content = preg_replace('/>\s+</', '><', $content);
-        
+
         file_put_contents($svgPath, trim($content));
         return true;
     }
