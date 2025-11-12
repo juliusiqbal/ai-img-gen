@@ -42,10 +42,10 @@ class AIImageGenerationService
             }
 
             // Check if structured design preferences are provided
+            // Note: text_blocks check removed since they are now auto-generated
             $hasStructuredPreferences = !empty($designPreferences) && (
                 !empty($designPreferences['template_type']) ||
-                !empty($designPreferences['keywords']) ||
-                !empty($designPreferences['text_blocks'])
+                !empty($designPreferences['keywords'])
             );
 
             if ($hasStructuredPreferences) {
