@@ -112,7 +112,7 @@ php artisan serve
         -   `image` (optional) - Sample image file
         -   `width`, `height`, `unit` (optional) - Custom dimensions
         -   `standard_size` (optional) - Standard size (A4, A3, etc.)
-        -   `template_count` (optional) - Number of templates (1-10, default: 4)
+        -   `template_count` (optional) - Number of templates (1-10, default: 1)
 
 ### Downloads
 
