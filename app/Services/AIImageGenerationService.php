@@ -23,7 +23,7 @@ class AIImageGenerationService
         Category $category,
         ?string $imagePath = null,
         array $printingDimensions = [],
-        int $templateCount = 4,
+        int $templateCount = 1,
         array $imagePaths = [],
         bool $useDalle3 = false,
         ?array $designPreferences = null

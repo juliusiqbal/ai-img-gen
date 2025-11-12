@@ -209,7 +209,7 @@ class ImageProcessingService
     public function createProfessionalTemplateFromGPT4(
         ?string $categoryDetails,
         array $dimensions = [],
-        int $templateCount = 4
+        int $templateCount = 1
     ): array {
         $templates = [];
         $canvasWidth = $dimensions['width'] ?? 1024;
@@ -267,7 +267,7 @@ class ImageProcessingService
         array $imagePaths,
         ?string $categoryDetails,
         array $dimensions = [],
-        int $templateCount = 4
+        int $templateCount = 1
     ): array {
         $templates = [];
         $canvasWidth = $dimensions['width'] ?? 1024;

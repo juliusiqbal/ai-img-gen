@@ -713,7 +713,7 @@ Return ONLY the optimized prompt text, nothing else.";
     /**
      * Generate multiple variations with meaningful differences
      */
-    public function generateVariations(string $category, ?string $imageDescription = null, ?string $categoryDetails = null, int $count = 4, array $imagePaths = [], bool $forceGPT4Refinement = false): array
+    public function generateVariations(string $category, ?string $imageDescription = null, ?string $categoryDetails = null, int $count = 1, array $imagePaths = [], bool $forceGPT4Refinement = false): array
     {
         $images = [];
 
