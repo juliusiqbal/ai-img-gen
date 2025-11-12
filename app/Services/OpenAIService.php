@@ -790,14 +790,9 @@ Return ONLY the optimized prompt text, nothing else.";
             $categoryName = $designPreferences['category_name'] ?? '';
             $categoryDetails = $designPreferences['category_details'] ?? '';
 
-            // Generate 2-3 random text blocks related to category and keywords
-            // Override any incoming text_blocks parameter
             $textBlocks = $this->generateTextBlocks($categoryName, $categoryDetails, $keywords);
-            
-            // Update design preferences with generated text blocks
             $designPreferences['text_blocks'] = $textBlocks;
             
-            // Generate default font sizes if not provided
             if (empty($fontSizes) && !empty($textBlocks)) {
                 $fontSizes = array_fill(0, count($textBlocks), 'medium');
                 $designPreferences['font_sizes'] = $fontSizes;
@@ -829,7 +824,6 @@ Generate {$numberOfTemplates} unique, professional prompts that will create real
             if ($keywords) {
                 $userPrompt .= "Keywords: {$keywords}\n";
             }
-            // Always include generated text blocks
             if (!empty($textBlocks)) {
                 $userPrompt .= "Text Blocks to Include:\n";
                 foreach ($textBlocks as $index => $text) {
