@@ -14,11 +14,15 @@ class Template extends Model
         'dimensions',
         'printing_dimensions',
         'prompt_used',
+        'project_name',
+        'generation_prompt',
+        'design_preferences',
     ];
 
     protected $casts = [
         'dimensions' => 'array',
         'printing_dimensions' => 'array',
+        'design_preferences' => 'array',
     ];
 
     public function category(): BelongsTo

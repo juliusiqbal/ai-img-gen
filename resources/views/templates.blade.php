@@ -49,11 +49,15 @@
                             class="btn btn-primary btn-sm">
                         Download Selected (<span x-text="selectedTemplates.length"></span>)
                     </button>
-                    <button x-show="selectedCategoryId" 
-                            :href="`/api/categories/${selectedCategoryId}/download`" 
-                            @click="downloadCategoryTemplates()"
+                    <button @click="downloadAll()" 
+                            :disabled="templates.length === 0"
                             class="btn btn-success btn-sm">
-                        Download All in Category
+                        Download All
+                    </button>
+                    <button x-show="selectedCategoryId" 
+                            @click="downloadCategoryTemplates()"
+                            class="btn btn-info btn-sm">
+                        Download Category
                     </button>
                 </div>
             </div>
@@ -77,20 +81,35 @@
                             </div>
 
                             <!-- Action Buttons -->
-                            <div class="d-flex gap-2 align-items-center mb-2">
-                                <a :href="`/api/templates/${template.id}/download`" 
-                                   class="btn btn-primary btn-sm flex-fill">Download</a>
-                                <input type="checkbox" 
-                                       :value="template.id" 
-                                       x-model="selectedTemplates" 
-                                       class="form-check-input mt-0">
+                            <div class="d-flex flex-column gap-2 mb-2">
+                                <div class="d-flex gap-1">
+                                    <button @click="previewTemplate(template)" class="btn btn-info btn-sm flex-fill">Preview</button>
+                                    <a :href="`/api/templates/${template.id}/download`" 
+                                       class="btn btn-primary btn-sm flex-fill">Download</a>
+                                </div>
+                                <div class="d-flex gap-1">
+                                    <button @click="regenerateTemplate(template.id)" 
+                                            :disabled="regenerating === template.id"
+                                            class="btn btn-warning btn-sm flex-fill">
+                                        <span x-show="regenerating !== template.id">Regenerate</span>
+                                        <span x-show="regenerating === template.id">Generating...</span>
+                                    </button>
+                                    <input type="checkbox" 
+                                           :value="template.id" 
+                                           x-model="selectedTemplates" 
+                                           class="form-check-input mt-0">
+                                </div>
                             </div>
 
                             <!-- Template Info -->
                             <div class="small text-muted">
+                                <div x-show="template.project_name" class="fw-bold text-primary mb-1" x-text="template.project_name"></div>
                                 <div class="text-truncate" x-text="template.svg_path" title="template.svg_path"></div>
                                 <div x-show="template.printing_dimensions && template.printing_dimensions.width" class="mt-1">
                                     <span x-text="template.printing_dimensions ? `${template.printing_dimensions.width} × ${template.printing_dimensions.height} ${template.printing_dimensions.unit || 'mm'}` : ''"></span>
+                                </div>
+                                <div x-show="template.generation_prompt" class="mt-1">
+                                    <button @click="showPrompt = template.id" class="btn btn-link btn-sm p-0 text-decoration-none">View Prompt</button>
                                 </div>
                             </div>
                         </div>
@@ -113,6 +132,9 @@ function templatesPage() {
         baseUrl: window.location.origin,
         showSuccess: false,
         successMessage: '',
+        previewTemplateData: null,
+        showPrompt: null,
+        regenerating: null,
 
         async init() {
             // Check for category_id in URL first
@@ -220,10 +242,140 @@ function templatesPage() {
         downloadCategoryTemplates() {
             if (!this.selectedCategoryId) return;
             window.location.href = `/api/categories/${this.selectedCategoryId}/download`;
-        }
+        },
+
+        previewTemplate(template) {
+            this.previewTemplateData = template;
+        },
+
+        closePreview() {
+            this.previewTemplateData = null;
+        },
+
+        async regenerateTemplate(templateId) {
+            if (!confirm('Regenerate this template? This will create a new template.')) {
+                return;
+            }
+
+            this.regenerating = templateId;
+            try {
+                const response = await fetch(`/api/generate/regenerate/${templateId}`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content,
+                        'Accept': 'application/json'
+                    }
+                });
+
+                const data = await response.json();
+                if (response.ok) {
+                    alert('Template regenerated successfully!');
+                    await this.loadTemplates();
+                } else {
+                    alert('Failed to regenerate: ' + (data.message || data.error));
+                }
+            } catch (e) {
+                alert('Error regenerating template: ' + e.message);
+            } finally {
+                this.regenerating = null;
+            }
+        },
+
+        async downloadAll() {
+            try {
+                const response = await fetch('/api/templates/download-all', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content
+                    },
+                    body: JSON.stringify({})
+                });
+
+                if (response.ok) {
+                    const blob = await response.blob();
+                    const url = window.URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = 'all_templates.zip';
+                    document.body.appendChild(a);
+                    a.click();
+                    document.body.removeChild(a);
+                    window.URL.revokeObjectURL(url);
+                } else {
+                    alert('Failed to download all templates');
+                }
+            } catch (e) {
+                alert('Error downloading templates: ' + e.message);
+            }
+        },
     }
 }
 </script>
+
+<!-- Preview Modal -->
+<div x-show="previewTemplateData" 
+     x-cloak
+     class="modal fade show" 
+     style="display: block; background: rgba(0,0,0,0.5);"
+     @click.self="closePreview()"
+     @keydown.escape.window="closePreview()">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Template Preview</h5>
+                <button type="button" class="btn-close" @click="closePreview()"></button>
+            </div>
+            <div class="modal-body text-center">
+                <template x-if="previewTemplateData">
+                    <div>
+                        <img :src="`${baseUrl}/storage/${previewTemplateData.svg_path}`" 
+                             alt="Template Preview" 
+                             class="img-fluid" 
+                             style="max-height: 70vh;" />
+                        <div class="mt-3" x-show="previewTemplateData.generation_prompt">
+                            <strong>Generation Prompt:</strong>
+                            <p class="small text-muted" x-text="previewTemplateData.generation_prompt"></p>
+                        </div>
+                    </div>
+                </template>
+            </div>
+            <div class="modal-footer">
+                <a :href="`/api/templates/${previewTemplateData?.id}/download`" 
+                   class="btn btn-primary">Download</a>
+                <button type="button" class="btn btn-secondary" @click="closePreview()">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Prompt View Modal -->
+<div x-show="showPrompt" 
+     x-cloak
+     class="modal fade show" 
+     style="display: block; background: rgba(0,0,0,0.5);"
+     @click.self="showPrompt = null"
+     @keydown.escape.window="showPrompt = null">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Generation Prompt</h5>
+                <button type="button" class="btn-close" @click="showPrompt = null"></button>
+            </div>
+            <div class="modal-body">
+                <template x-for="template in templates" :key="template.id">
+                    <div x-show="showPrompt === template.id">
+                        <p class="small" x-text="template.generation_prompt"></p>
+                    </div>
+                </template>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" @click="showPrompt = null">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
 @endpush
 @endsection
 

@@ -17,9 +17,67 @@ class ImageProcessingService
         $filename = uniqid() . '_' . time() . '.' . $file->getClientOriginalExtension();
         $path = $category ? "uploads/{$category}/{$filename}" : "uploads/{$filename}";
 
-        $file->storeAs('public', $path);
+        // Ensure directory exists
+        $fullPath = storage_path('app/public/' . $path);
+        $dir = dirname($fullPath);
+        if (!is_dir($dir)) {
+            $created = @mkdir($dir, 0755, true);
+            if (!$created && !is_dir($dir)) {
+                Log::error("Failed to create directory", [
+                    'dir' => $dir,
+                    'path' => $path,
+                ]);
+                throw new \Exception("Failed to create upload directory: {$dir}");
+            }
+        }
 
-        return $path;
+        // Use Storage facade to store the file - more reliable
+        try {
+            $stored = Storage::disk('public')->putFileAs(
+                dirname($path),
+                $file,
+                basename($path)
+            );
+            
+            if (!$stored) {
+                Log::error("Storage::putFileAs returned false", [
+                    'path' => $path,
+                    'category' => $category,
+                ]);
+                throw new \Exception("Failed to store uploaded image: {$path}");
+            }
+
+            // Verify file exists
+            $exists = Storage::disk('public')->exists($path);
+            $fullStoragePath = storage_path('app/public/' . $path);
+            $fileExists = file_exists($fullStoragePath);
+            
+            if (!$exists || !$fileExists) {
+                Log::error("File not found after storage", [
+                    'path' => $path,
+                    'stored' => $stored,
+                    'storage_exists' => $exists,
+                    'file_exists' => $fileExists,
+                    'full_path' => $fullStoragePath,
+                ]);
+                throw new \Exception("Failed to store uploaded image: {$path}");
+            }
+
+            Log::info("Image stored successfully", [
+                'path' => $path,
+                'full_path' => $fullStoragePath,
+                'size' => filesize($fullStoragePath),
+            ]);
+
+            return $path;
+        } catch (\Exception $e) {
+            Log::error("Exception during image storage", [
+                'path' => $path,
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+            ]);
+            throw $e;
+        }
     }
 
     /**
@@ -143,6 +201,921 @@ class ImageProcessingService
         } catch (\Exception $e) {
             return false;
         }
+    }
+
+    /**
+     * Create professional template from GPT-4 guidance when no images are uploaded
+     */
+    public function createProfessionalTemplateFromGPT4(
+        ?string $categoryDetails,
+        array $dimensions = [],
+        int $templateCount = 4
+    ): array {
+        $templates = [];
+        $canvasWidth = $dimensions['width'] ?? 1024;
+        $canvasHeight = $dimensions['height'] ?? 1024;
+
+        // Extract text elements from category details
+        $textElements = $this->extractTextFromDetails($categoryDetails);
+
+        for ($i = 0; $i < $templateCount; $i++) {
+            try {
+                // Create canvas
+                $canvas = imagecreatetruecolor($canvasWidth, $canvasHeight);
+                
+                // Create attractive background
+                $this->createAttractiveBackground($canvas, $canvasWidth, $canvasHeight, $i);
+
+                // Add decorative elements
+                $this->addDecorativeElements($canvas, $canvasWidth, $canvasHeight, $i);
+
+                // Add text overlays with professional styling (no images, text-focused)
+                if (!empty($textElements)) {
+                    $this->addTextOverlays($canvas, $textElements, $canvasWidth, $canvasHeight, $i);
+                }
+
+                // Save template
+                $outputPath = 'generated/gpt4_template_' . uniqid() . '_' . time() . '_' . $i . '.png';
+                $outputFullPath = storage_path('app/public/' . $outputPath);
+                
+                $dir = dirname($outputFullPath);
+                if (!is_dir($dir)) {
+                    mkdir($dir, 0755, true);
+                }
+
+                imagepng($canvas, $outputFullPath, 9);
+                imagedestroy($canvas);
+
+                $templates[] = [
+                    'url' => null,
+                    'path' => $outputPath,
+                    'revised_prompt' => 'GPT-4 guided professional template',
+                ];
+            } catch (\Exception $e) {
+                Log::error("Failed to create GPT-4 professional template {$i}: " . $e->getMessage());
+                continue;
+            }
+        }
+
+        return $templates;
+    }
+
+    /**
+     * Create composite template from uploaded images with text overlays
+     */
+    public function createCompositeTemplate(
+        array $imagePaths,
+        ?string $categoryDetails,
+        array $dimensions = [],
+        int $templateCount = 4
+    ): array {
+        $templates = [];
+        $canvasWidth = $dimensions['width'] ?? 1024;
+        $canvasHeight = $dimensions['height'] ?? 1024;
+
+        // Extract text elements from category details
+        $textElements = $this->extractTextFromDetails($categoryDetails);
+
+        for ($i = 0; $i < $templateCount; $i++) {
+            try {
+                // Create canvas
+                $canvas = imagecreatetruecolor($canvasWidth, $canvasHeight);
+                
+                // Create attractive background (gradient or solid color based on variation)
+                $this->createAttractiveBackground($canvas, $canvasWidth, $canvasHeight, $i);
+
+                // Arrange images with attractive layouts (different for each variation)
+                $this->arrangeImagesOnCanvas($canvas, $imagePaths, $canvasWidth, $canvasHeight, $i);
+
+                // Add text overlays with professional styling
+                if (!empty($textElements)) {
+                    $this->addTextOverlays($canvas, $textElements, $canvasWidth, $canvasHeight, $i);
+                }
+
+                // Save template
+                $outputPath = 'generated/composite_' . uniqid() . '_' . time() . '_' . $i . '.png';
+                $outputFullPath = storage_path('app/public/' . $outputPath);
+                
+                $dir = dirname($outputFullPath);
+                if (!is_dir($dir)) {
+                    mkdir($dir, 0755, true);
+                }
+
+                imagepng($canvas, $outputFullPath, 9);
+                imagedestroy($canvas);
+
+                $templates[] = [
+                    'url' => null, // Not from URL
+                    'path' => $outputPath,
+                    'revised_prompt' => 'Composite template with uploaded images',
+                ];
+            } catch (\Exception $e) {
+                Log::error("Failed to create composite template {$i}: " . $e->getMessage());
+                continue;
+            }
+        }
+
+        return $templates;
+    }
+
+    /**
+     * Create attractive background for template
+     */
+    private function createAttractiveBackground($canvas, int $canvasWidth, int $canvasHeight, int $variationIndex): void
+    {
+        // Different background styles for variations
+        $bgStyles = [
+            0 => ['r' => 255, 'g' => 255, 'b' => 255], // White
+            1 => ['r' => 248, 'g' => 248, 'b' => 252], // Light gray-blue
+            2 => ['r' => 252, 'g' => 252, 'b' => 255], // Very light blue
+            3 => ['r' => 255, 'g' => 252, 'b' => 248], // Very light warm
+        ];
+        
+        $style = $bgStyles[$variationIndex % count($bgStyles)];
+        $bgColor = imagecolorallocate($canvas, $style['r'], $style['g'], $style['b']);
+        imagefill($canvas, 0, 0, $bgColor);
+        
+        // Add subtle decorative elements
+        $this->addDecorativeElements($canvas, $canvasWidth, $canvasHeight, $variationIndex);
+    }
+
+    /**
+     * Add decorative elements for professional look
+     */
+    private function addDecorativeElements($canvas, int $canvasWidth, int $canvasHeight, int $variationIndex): void
+    {
+        // Add subtle decorative lines or shapes
+        $decorColor = imagecolorallocate($canvas, 230, 230, 235);
+        
+        // Top decorative line
+        imageline($canvas, 0, 2, $canvasWidth, 2, $decorColor);
+        // Bottom decorative line
+        imageline($canvas, 0, $canvasHeight - 3, $canvasWidth, $canvasHeight - 3, $decorColor);
+        
+        // Add corner accents for some variations
+        if ($variationIndex % 2 === 0) {
+            $accentColor = imagecolorallocate($canvas, 240, 240, 245);
+            // Top-left corner accent
+            imagefilledrectangle($canvas, 0, 0, 50, 3, $accentColor);
+            // Bottom-right corner accent
+            imagefilledrectangle($canvas, $canvasWidth - 50, $canvasHeight - 3, $canvasWidth, $canvasHeight, $accentColor);
+        }
+    }
+
+    /**
+     * Arrange images on canvas with attractive layouts
+     */
+    private function arrangeImagesOnCanvas($canvas, array $imagePaths, int $canvasWidth, int $canvasHeight, int $variationIndex = 0): void
+    {
+        $imageCount = count($imagePaths);
+        if ($imageCount === 0) {
+            Log::warning('No image paths provided for canvas arrangement');
+            return;
+        }
+
+        $images = [];
+        foreach ($imagePaths as $path) {
+            $fullPath = storage_path('app/public/' . $path);
+            
+            if (!file_exists($fullPath)) {
+                Log::error("Image file not found: {$fullPath} (path: {$path})");
+                continue;
+            }
+
+            $info = @getimagesize($fullPath);
+            if (!$info) {
+                Log::error("Failed to get image size: {$fullPath}");
+                continue;
+            }
+
+            $mimeType = $info['mime'];
+            $img = match ($mimeType) {
+                'image/jpeg', 'image/jpg' => @imagecreatefromjpeg($fullPath),
+                'image/png' => @imagecreatefrompng($fullPath),
+                'image/webp' => @imagecreatefromwebp($fullPath),
+                default => null,
+            };
+
+            if ($img === false || $img === null) {
+                Log::error("Failed to create image resource from: {$fullPath} (mime: {$mimeType})");
+                continue;
+            }
+
+            $images[] = [
+                'resource' => $img,
+                'width' => $info[0],
+                'height' => $info[1],
+            ];
+        }
+
+        if (empty($images)) {
+            Log::error("No valid images loaded from paths: " . implode(', ', $imagePaths));
+            return;
+        }
+
+        Log::info("Successfully loaded " . count($images) . " images for canvas arrangement");
+
+        // Use actual loaded image count, not path count
+        $loadedImageCount = count($images);
+        
+        // Store image positions for adding frames/shadows
+        $imagePositions = [];
+        
+        // Calculate positions first (without drawing)
+        if ($loadedImageCount === 1) {
+            $imagePositions = $this->calculateSingleImageLayout($images[0], $canvasWidth, $canvasHeight, $variationIndex);
+        } elseif ($loadedImageCount === 2) {
+            $imagePositions = $this->calculateTwoImagesLayout($images, $canvasWidth, $canvasHeight, $variationIndex);
+        } else {
+            $imagePositions = $this->calculateMultipleImagesLayout($images, $canvasWidth, $canvasHeight, $variationIndex);
+        }
+        
+        // Draw shadows first (behind images)
+        foreach ($imagePositions as $pos) {
+            $this->addImageShadow($canvas, $pos['x'], $pos['y'], $pos['width'], $pos['height']);
+        }
+        
+        // Draw images
+        if ($loadedImageCount === 1) {
+            $this->drawSingleImage($canvas, $imagePositions[0]);
+        } elseif ($loadedImageCount === 2) {
+            $this->drawTwoImages($canvas, $imagePositions);
+        } else {
+            $this->drawMultipleImages($canvas, $imagePositions);
+        }
+        
+        // Add professional frames (on top)
+        foreach ($imagePositions as $pos) {
+            $this->addImageFrame($canvas, $pos['x'], $pos['y'], $pos['width'], $pos['height']);
+        }
+
+        // Clean up image resources
+        foreach ($images as $img) {
+            imagedestroy($img['resource']);
+        }
+    }
+
+    /**
+     * Add drop shadow to image
+     */
+    private function addImageShadow($canvas, int $x, int $y, int $width, int $height): void
+    {
+        $shadowOffset = 8;
+        $shadowBlur = 12;
+        
+        // Draw shadow (multiple rectangles for blur effect)
+        for ($i = 0; $i < $shadowBlur; $i++) {
+            $alpha = (int)(70 - ($i * 5));
+            if ($alpha < 0) $alpha = 0;
+            $shadowColor = imagecolorallocatealpha($canvas, 0, 0, 0, $alpha);
+            $offset = $shadowOffset - ($i * 0.6);
+            imagefilledrectangle(
+                $canvas,
+                $x + $offset,
+                $y + $offset,
+                $x + $width + $offset,
+                $y + $height + $offset,
+                $shadowColor
+            );
+        }
+    }
+
+    /**
+     * Add professional frame/border to image
+     */
+    private function addImageFrame($canvas, int $x, int $y, int $width, int $height): void
+    {
+        // Add professional border
+        $borderWidth = 3;
+        $borderColor = imagecolorallocate($canvas, 240, 240, 240);
+        $innerBorderColor = imagecolorallocate($canvas, 255, 255, 255);
+        
+        // Outer border
+        imagerectangle($canvas, $x - $borderWidth, $y - $borderWidth, $x + $width + $borderWidth, $y + $height + $borderWidth, $borderColor);
+        // Inner border for depth
+        imagerectangle($canvas, $x - 1, $y - 1, $x + $width + 1, $y + $height + 1, $innerBorderColor);
+    }
+
+    /**
+     * Calculate single image layout positions
+     */
+    private function calculateSingleImageLayout(array $img, int $canvasWidth, int $canvasHeight, int $variationIndex): array
+    {
+        $layouts = [
+            0 => 'full_bleed',      // Full width, top
+            1 => 'centered',        // Centered with padding
+            2 => 'offset_left',     // Left aligned, offset
+            3 => 'offset_right',    // Right aligned, offset
+        ];
+        
+        $layout = $layouts[$variationIndex % count($layouts)];
+        
+        switch ($layout) {
+            case 'full_bleed':
+                // Full width, top portion
+                $targetWidth = $canvasWidth;
+                $targetHeight = (int)($canvasHeight * 0.7); // 70% of height
+                $targetHeight = (int)($img['height'] * $targetWidth / $img['width']);
+                if ($targetHeight > (int)($canvasHeight * 0.7)) {
+                    $targetHeight = (int)($canvasHeight * 0.7);
+                    $targetWidth = (int)($img['width'] * $targetHeight / $img['height']);
+                }
+                $x = 0;
+                $y = 0;
+                break;
+                
+            case 'centered':
+                // Centered with padding
+                $padding = 40;
+                $targetWidth = $canvasWidth - ($padding * 2);
+                $targetHeight = (int)($img['height'] * $targetWidth / $img['width']);
+                if ($targetHeight > $canvasHeight - ($padding * 2)) {
+                    $targetHeight = $canvasHeight - ($padding * 2);
+                    $targetWidth = (int)($img['width'] * $targetHeight / $img['height']);
+                }
+                $x = (int)(($canvasWidth - $targetWidth) / 2);
+                $y = (int)(($canvasHeight - $targetHeight) / 2);
+                break;
+                
+            case 'offset_left':
+                // Left aligned with offset
+                $offsetX = 30;
+                $offsetY = 50;
+                $targetWidth = (int)($canvasWidth * 0.65);
+                $targetHeight = (int)($img['height'] * $targetWidth / $img['width']);
+                if ($targetHeight > $canvasHeight - ($offsetY * 2)) {
+                    $targetHeight = $canvasHeight - ($offsetY * 2);
+                    $targetWidth = (int)($img['width'] * $targetHeight / $img['height']);
+                }
+                $x = $offsetX;
+                $y = $offsetY;
+                break;
+                
+            case 'offset_right':
+                // Right aligned with offset
+                $offsetX = 30;
+                $offsetY = 50;
+                $targetWidth = (int)($canvasWidth * 0.65);
+                $targetHeight = (int)($img['height'] * $targetWidth / $img['width']);
+                if ($targetHeight > $canvasHeight - ($offsetY * 2)) {
+                    $targetHeight = $canvasHeight - ($offsetY * 2);
+                    $targetWidth = (int)($img['width'] * $targetHeight / $img['height']);
+                }
+                $x = $canvasWidth - $targetWidth - $offsetX;
+                $y = $offsetY;
+                break;
+        }
+        
+        // Return position for frame/shadow (with padding for frame)
+        $framePadding = 3;
+        return [['x' => $x, 'y' => $y, 'width' => $targetWidth, 'height' => $targetHeight, 'img' => $img]];
+    }
+
+    /**
+     * Draw single image on canvas
+     */
+    private function drawSingleImage($canvas, array $position): void
+    {
+        if (!isset($position['img'])) {
+            return;
+        }
+        $img = $position['img'];
+        $framePadding = 3;
+        $imageX = $position['x'] + $framePadding;
+        $imageY = $position['y'] + $framePadding;
+        $imageWidth = $position['width'] - ($framePadding * 2);
+        $imageHeight = $position['height'] - ($framePadding * 2);
+        
+        imagecopyresampled($canvas, $img['resource'], $imageX, $imageY, 0, 0, $imageWidth, $imageHeight, $img['width'], $img['height']);
+    }
+
+    /**
+     * Calculate two images layout positions
+     */
+    private function calculateTwoImagesLayout(array $images, int $canvasWidth, int $canvasHeight, int $variationIndex): array
+    {
+        $layouts = [
+            0 => 'l_shape',            // L-shape layout (top-left and bottom-left)
+            1 => 'split_vertical',    // Left/Right split
+            2 => 'overlapping',        // Overlapping with offset
+            3 => 'diagonal',          // Diagonal arrangement
+        ];
+        
+        $layout = $layouts[$variationIndex % count($layouts)];
+        $img1 = $images[0];
+        $img2 = $images[1];
+        
+        switch ($layout) {
+            case 'l_shape':
+                // Professional L-shape layout (like the example)
+                // Top-left image (larger)
+                $targetWidth1 = (int)($canvasWidth * 0.5);
+                $targetHeight1 = (int)($img1['height'] * $targetWidth1 / $img1['width']);
+                if ($targetHeight1 > (int)($canvasHeight * 0.55)) {
+                    $targetHeight1 = (int)($canvasHeight * 0.55);
+                    $targetWidth1 = (int)($img1['width'] * $targetHeight1 / $img1['height']);
+                }
+                $x1 = 30;
+                $y1 = 30;
+                
+                // Bottom-left image (smaller, creates L-shape)
+                $targetWidth2 = (int)($canvasWidth * 0.48);
+                $targetHeight2 = (int)($img2['height'] * $targetWidth2 / $img2['width']);
+                if ($targetHeight2 > (int)($canvasHeight * 0.45)) {
+                    $targetHeight2 = (int)($canvasHeight * 0.45);
+                    $targetWidth2 = (int)($img2['width'] * $targetHeight2 / $img2['height']);
+                }
+                $x2 = 30;
+                $y2 = $y1 + $targetHeight1 + 20; // Position below first image
+                
+                return [
+                    ['x' => $x1, 'y' => $y1, 'width' => $targetWidth1, 'height' => $targetHeight1, 'img' => $img1],
+                    ['x' => $x2, 'y' => $y2, 'width' => $targetWidth2, 'height' => $targetHeight2, 'img' => $img2],
+                ];
+                
+            case 'split_vertical':
+                // Left/Right with gap
+                $gap = 20;
+                $halfWidth = (int)(($canvasWidth - $gap) / 2);
+                
+                // Left image
+                $targetWidth1 = $halfWidth;
+                $targetHeight1 = (int)($img1['height'] * $targetWidth1 / $img1['width']);
+                if ($targetHeight1 > $canvasHeight) {
+                    $targetHeight1 = $canvasHeight;
+                    $targetWidth1 = (int)($img1['width'] * $targetHeight1 / $img1['height']);
+                }
+                $x1 = 0;
+                $y1 = (int)(($canvasHeight - $targetHeight1) / 2);
+                
+                // Right image
+                $targetWidth2 = $halfWidth;
+                $targetHeight2 = (int)($img2['height'] * $targetWidth2 / $img2['width']);
+                if ($targetHeight2 > $canvasHeight) {
+                    $targetHeight2 = $canvasHeight;
+                    $targetWidth2 = (int)($img2['width'] * $targetHeight2 / $img2['height']);
+                }
+                $x2 = $halfWidth + $gap;
+                $y2 = (int)(($canvasHeight - $targetHeight2) / 2);
+                
+                return [
+                    ['x' => $x1, 'y' => $y1, 'width' => $targetWidth1, 'height' => $targetHeight1, 'img' => $img1],
+                    ['x' => $x2, 'y' => $y2, 'width' => $targetWidth2, 'height' => $targetHeight2, 'img' => $img2],
+                ];
+                
+            case 'split_horizontal':
+                // Top/Bottom with gap
+                $gap = 20;
+                $halfHeight = (int)(($canvasHeight - $gap) / 2);
+                
+                // Top image
+                $targetWidth1 = $canvasWidth;
+                $targetHeight1 = (int)($img1['height'] * $targetWidth1 / $img1['width']);
+                if ($targetHeight1 > $halfHeight) {
+                    $targetHeight1 = $halfHeight;
+                    $targetWidth1 = (int)($img1['width'] * $targetHeight1 / $img1['height']);
+                }
+                $x1 = (int)(($canvasWidth - $targetWidth1) / 2);
+                $y1 = 0;
+                
+                // Bottom image
+                $targetWidth2 = $canvasWidth;
+                $targetHeight2 = (int)($img2['height'] * $targetWidth2 / $img2['width']);
+                if ($targetHeight2 > $halfHeight) {
+                    $targetHeight2 = $halfHeight;
+                    $targetWidth2 = (int)($img2['width'] * $targetHeight2 / $img2['height']);
+                }
+                $x2 = (int)(($canvasWidth - $targetWidth2) / 2);
+                $y2 = $halfHeight + $gap;
+                
+                return [
+                    ['x' => $x1, 'y' => $y1, 'width' => $targetWidth1, 'height' => $targetHeight1, 'img' => $img1],
+                    ['x' => $x2, 'y' => $y2, 'width' => $targetWidth2, 'height' => $targetHeight2, 'img' => $img2],
+                ];
+                
+            case 'overlapping':
+                // Overlapping with offset - larger image behind, smaller in front
+                // Background image (larger)
+                $targetWidth1 = (int)($canvasWidth * 0.75);
+                $targetHeight1 = (int)($img1['height'] * $targetWidth1 / $img1['width']);
+                if ($targetHeight1 > $canvasHeight) {
+                    $targetHeight1 = $canvasHeight;
+                    $targetWidth1 = (int)($img1['width'] * $targetHeight1 / $img1['height']);
+                }
+                $x1 = (int)(($canvasWidth - $targetWidth1) / 2) - 30;
+                $y1 = (int)(($canvasHeight - $targetHeight1) / 2) - 20;
+                
+                // Foreground image (smaller, offset)
+                $targetWidth2 = (int)($canvasWidth * 0.5);
+                $targetHeight2 = (int)($img2['height'] * $targetWidth2 / $img2['width']);
+                if ($targetHeight2 > (int)($canvasHeight * 0.6)) {
+                    $targetHeight2 = (int)($canvasHeight * 0.6);
+                    $targetWidth2 = (int)($img2['width'] * $targetHeight2 / $img2['height']);
+                }
+                $x2 = (int)(($canvasWidth - $targetWidth2) / 2) + 30;
+                $y2 = (int)(($canvasHeight - $targetHeight2) / 2) + 20;
+                
+                return [
+                    ['x' => $x1, 'y' => $y1, 'width' => $targetWidth1, 'height' => $targetHeight1, 'img' => $img1],
+                    ['x' => $x2, 'y' => $y2, 'width' => $targetWidth2, 'height' => $targetHeight2, 'img' => $img2],
+                ];
+                
+            case 'diagonal':
+                // Diagonal arrangement
+                // Top-left image
+                $targetWidth1 = (int)($canvasWidth * 0.55);
+                $targetHeight1 = (int)($img1['height'] * $targetWidth1 / $img1['width']);
+                if ($targetHeight1 > (int)($canvasHeight * 0.6)) {
+                    $targetHeight1 = (int)($canvasHeight * 0.6);
+                    $targetWidth1 = (int)($img1['width'] * $targetHeight1 / $img1['height']);
+                }
+                $x1 = 40;
+                $y1 = 40;
+                
+                // Bottom-right image
+                $targetWidth2 = (int)($canvasWidth * 0.55);
+                $targetHeight2 = (int)($img2['height'] * $targetWidth2 / $img2['width']);
+                if ($targetHeight2 > (int)($canvasHeight * 0.6)) {
+                    $targetHeight2 = (int)($canvasHeight * 0.6);
+                    $targetWidth2 = (int)($img2['width'] * $targetHeight2 / $img2['height']);
+                }
+                $x2 = $canvasWidth - $targetWidth2 - 40;
+                $y2 = $canvasHeight - $targetHeight2 - 40;
+                
+                return [
+                    ['x' => $x1, 'y' => $y1, 'width' => $targetWidth1, 'height' => $targetHeight1, 'img' => $img1],
+                    ['x' => $x2, 'y' => $y2, 'width' => $targetWidth2, 'height' => $targetHeight2, 'img' => $img2],
+                ];
+        }
+        
+        return [];
+    }
+
+    /**
+     * Draw two images on canvas
+     */
+    private function drawTwoImages($canvas, array $positions): void
+    {
+        $framePadding = 3;
+        foreach ($positions as $pos) {
+            if (isset($pos['img'])) {
+                $img = $pos['img'];
+                $imageX = $pos['x'] + $framePadding;
+                $imageY = $pos['y'] + $framePadding;
+                $imageWidth = $pos['width'] - ($framePadding * 2);
+                $imageHeight = $pos['height'] - ($framePadding * 2);
+                
+                imagecopyresampled($canvas, $img['resource'], $imageX, $imageY, 0, 0, $imageWidth, $imageHeight, $img['width'], $img['height']);
+            }
+        }
+    }
+
+    /**
+     * Calculate multiple images layout positions (professional L-shape or grid)
+     */
+    private function calculateMultipleImagesLayout(array $images, int $canvasWidth, int $canvasHeight, int $variationIndex): array
+    {
+        $imageCount = count($images);
+        $positions = [];
+        
+        // For 3 images, create professional L-shape layout (like the example)
+        if ($imageCount === 3 && $variationIndex % 2 === 0) {
+            // Top-left image (larger)
+            $img1 = $images[0];
+            $targetWidth1 = (int)($canvasWidth * 0.48);
+            $targetHeight1 = (int)($img1['height'] * $targetWidth1 / $img1['width']);
+            if ($targetHeight1 > (int)($canvasHeight * 0.5)) {
+                $targetHeight1 = (int)($canvasHeight * 0.5);
+                $targetWidth1 = (int)($img1['width'] * $targetHeight1 / $img1['height']);
+            }
+            $positions[] = ['x' => 30, 'y' => 30, 'width' => $targetWidth1, 'height' => $targetHeight1, 'img' => $img1];
+            
+            // Top-right image (smaller)
+            $img2 = $images[1];
+            $targetWidth2 = (int)($canvasWidth * 0.45);
+            $targetHeight2 = (int)($img2['height'] * $targetWidth2 / $img2['width']);
+            if ($targetHeight2 > (int)($canvasHeight * 0.48)) {
+                $targetHeight2 = (int)($canvasHeight * 0.48);
+                $targetWidth2 = (int)($img2['width'] * $targetHeight2 / $img2['height']);
+            }
+            $positions[] = ['x' => 30 + $targetWidth1 + 20, 'y' => 30, 'width' => $targetWidth2, 'height' => $targetHeight2, 'img' => $img2];
+            
+            // Bottom-left image (creates L-shape)
+            $img3 = $images[2];
+            $targetWidth3 = (int)($canvasWidth * 0.48);
+            $targetHeight3 = (int)($img3['height'] * $targetWidth3 / $img3['width']);
+            if ($targetHeight3 > (int)($canvasHeight * 0.45)) {
+                $targetHeight3 = (int)($canvasHeight * 0.45);
+                $targetWidth3 = (int)($img3['width'] * $targetHeight3 / $img3['height']);
+            }
+            $positions[] = ['x' => 30, 'y' => 30 + $targetHeight1 + 20, 'width' => $targetWidth3, 'height' => $targetHeight3, 'img' => $img3];
+            
+            return $positions;
+        }
+        
+        // For other cases, use grid layout
+        $cols = $imageCount <= 4 ? 2 : 3;
+        $rows = (int)ceil($imageCount / $cols);
+        $gap = 15;
+        $cellWidth = (int)(($canvasWidth - ($gap * ($cols + 1))) / $cols);
+        $cellHeight = (int)(($canvasHeight - ($gap * ($rows + 1))) / $rows);
+
+        foreach ($images as $index => $img) {
+            $col = $index % $cols;
+            $row = (int)($index / $cols);
+            
+            $x = $gap + ($col * ($cellWidth + $gap));
+            $y = $gap + ($row * ($cellHeight + $gap));
+
+            // Calculate size to fit in cell with padding
+            $padding = 10;
+            $targetWidth = $cellWidth - ($padding * 2);
+            $targetHeight = (int)($img['height'] * $targetWidth / $img['width']);
+            if ($targetHeight > $cellHeight - ($padding * 2)) {
+                $targetHeight = $cellHeight - ($padding * 2);
+                $targetWidth = (int)($img['width'] * $targetHeight / $img['height']);
+            }
+
+            $x += (int)(($cellWidth - $targetWidth) / 2);
+            $y += (int)(($cellHeight - $targetHeight) / 2);
+            
+            $positions[] = ['x' => $x, 'y' => $y, 'width' => $targetWidth, 'height' => $targetHeight, 'img' => $img];
+        }
+        
+        return $positions;
+    }
+
+    /**
+     * Draw multiple images on canvas
+     */
+    private function drawMultipleImages($canvas, array $positions): void
+    {
+        $framePadding = 3;
+        foreach ($positions as $pos) {
+            if (isset($pos['img'])) {
+                $img = $pos['img'];
+                $imageX = $pos['x'] + $framePadding;
+                $imageY = $pos['y'] + $framePadding;
+                $imageWidth = $pos['width'] - ($framePadding * 2);
+                $imageHeight = $pos['height'] - ($framePadding * 2);
+                
+                imagecopyresampled($canvas, $img['resource'], $imageX, $imageY, 0, 0, $imageWidth, $imageHeight, $img['width'], $img['height']);
+            }
+        }
+    }
+
+    /**
+     * Add text overlays to canvas with professional styling
+     */
+    private function addTextOverlays($canvas, array $textElements, int $canvasWidth, int $canvasHeight, int $variationIndex): void
+    {
+        if (empty($textElements)) {
+            return;
+        }
+
+        // Categorize text elements by importance for size hierarchy
+        $textCategories = $this->categorizeTextElements($textElements);
+        
+        // Position text strategically - create professional layout
+        $layoutStrategy = $variationIndex % 4;
+        
+        // Each text element gets its own professional text box
+        $yStart = 0;
+        $xStart = 0;
+        $spacing = 15;
+        
+        switch ($layoutStrategy) {
+            case 0: // Right side vertical stack (overlapping bottom image)
+                $xStart = (int)($canvasWidth * 0.65);
+                $yStart = (int)($canvasHeight * 0.4);
+                break;
+            case 1: // Right side top
+                $xStart = (int)($canvasWidth * 0.6);
+                $yStart = 50;
+                break;
+            case 2: // Bottom right corner
+                $xStart = (int)($canvasWidth * 0.55);
+                $yStart = (int)($canvasHeight * 0.6);
+                break;
+            case 3: // Center right
+                $xStart = (int)($canvasWidth * 0.58);
+                $yStart = (int)($canvasHeight * 0.3);
+                break;
+        }
+        
+        $currentY = $yStart;
+        
+        // Draw each text element as a separate professional box
+        foreach ($textElements as $index => $text) {
+            // Determine font size based on importance
+            $isImportant = $this->isImportantText($text, $textCategories);
+            $font = $isImportant ? 5 : 5; // Use largest font, but adjust spacing for emphasis
+            $fontMultiplier = $isImportant ? 1.4 : 1.0; // Make important text appear larger
+            
+            // Calculate text dimensions
+            $textWidth = imagefontwidth($font) * strlen($text);
+            $textHeight = imagefontheight($font);
+            
+            // Padding for text box
+            $padding = $isImportant ? 20 : 15;
+            $boxWidth = (int)($textWidth * $fontMultiplier) + ($padding * 2);
+            $boxHeight = (int)($textHeight * $fontMultiplier) + ($padding * 2);
+            
+            // Position box (right-aligned for professional look)
+            $boxX = $xStart;
+            $boxY = $currentY;
+            
+            // Add professional drop shadow (stronger shadow)
+            $shadowOffset = 6;
+            $shadowBlur = 8;
+            for ($i = 0; $i < $shadowBlur; $i++) {
+                $alpha = (int)(80 - ($i * 9));
+                if ($alpha < 0) $alpha = 0;
+                $shadowColor = imagecolorallocatealpha($canvas, 0, 0, 0, $alpha);
+                $offset = $shadowOffset - ($i * 0.7);
+                imagefilledrectangle(
+                    $canvas,
+                    $boxX + $offset,
+                    $boxY + $offset,
+                    $boxX + $boxWidth + $offset,
+                    $boxY + $boxHeight + $offset,
+                    $shadowColor
+                );
+            }
+            
+            // Draw solid white background
+            $bgColor = imagecolorallocate($canvas, 255, 255, 255);
+            imagefilledrectangle($canvas, $boxX, $boxY, $boxX + $boxWidth, $boxY + $boxHeight, $bgColor);
+            
+            // Add professional black border (like the example)
+            $borderColor = imagecolorallocate($canvas, 0, 0, 0);
+            $borderWidth = 2;
+            
+            // Outer border
+            imagerectangle($canvas, $boxX, $boxY, $boxX + $boxWidth, $boxY + $boxHeight, $borderColor);
+            // Inner border for depth
+            imagerectangle($canvas, $boxX + 1, $boxY + 1, $boxX + $boxWidth - 1, $boxY + $boxHeight - 1, $borderColor);
+            
+            // Calculate text position (centered in box)
+            $textX = $boxX + $padding;
+            $textY = $boxY + $padding + (int)($textHeight * ($fontMultiplier - 1) / 2);
+            
+            // Draw text (black, horizontal, no rotation)
+            $textColor = imagecolorallocate($canvas, 0, 0, 0);
+            
+            // For larger text effect, draw text multiple times with slight offset (simulate bold)
+            if ($isImportant) {
+                for ($i = 0; $i < 2; $i++) {
+                    imagestring($canvas, $font, $textX + $i, $textY + $i, $text, $textColor);
+                }
+            } else {
+                imagestring($canvas, $font, $textX, $textY, $text, $textColor);
+            }
+            
+            // Move to next position
+            $currentY += $boxHeight + $spacing;
+        }
+    }
+
+    /**
+     * Categorize text elements by importance
+     */
+    private function categorizeTextElements(array $textElements): array
+    {
+        $categories = [
+            'important' => [], // Discounts, percentages, key offers
+            'normal' => [],    // Regular text
+        ];
+        
+        foreach ($textElements as $text) {
+            // Check if text contains discount/percentage (high importance)
+            if (preg_match('/\d+\s*%|off|discount|sale|special/i', $text)) {
+                $categories['important'][] = $text;
+            } else {
+                $categories['normal'][] = $text;
+            }
+        }
+        
+        return $categories;
+    }
+
+    /**
+     * Check if text is important (should be larger)
+     */
+    private function isImportantText(string $text, array $categories): bool
+    {
+        return in_array($text, $categories['important']);
+    }
+
+    /**
+     * Extract text elements from category details
+     */
+    private function extractTextFromDetails(?string $categoryDetails): array
+    {
+        if (empty($categoryDetails)) {
+            return [];
+        }
+
+        $textElements = [];
+
+        // Extract destinations/locations
+        if (preg_match_all('/\b(?:in|for|to|visit|travel|tour)\s+([a-z]+(?:\s+[a-z]+){0,3})/i', $categoryDetails, $matches)) {
+            foreach ($matches[1] as $match) {
+                $location = trim($match);
+                $skipWords = ['the', 'a', 'an', 'and', 'or', 'with', 'add'];
+                $words = explode(' ', strtolower($location));
+                $validWords = array_filter($words, function($word) use ($skipWords) {
+                    return !in_array($word, $skipWords) && strlen($word) > 2;
+                });
+                if (!empty($validWords)) {
+                    $textElements[] = ucwords(implode(' ', $validWords));
+                }
+            }
+        }
+
+        // Extract discount percentages
+        if (preg_match_all('/(?:add\s+)?(\d+)\s*%?\s*(?:off|discount|disc|percent)/i', $categoryDetails, $matches)) {
+            foreach ($matches[1] as $match) {
+                $textElements[] = trim($match) . '% OFF';
+            }
+        }
+
+        // Extract agency/company names
+        if (preg_match_all('/add\s+(?:agency\s+name|company\s+name|name)\s+([a-z]+(?:\s+(?:and|tour|travels|travel|agency|company)?\s*[a-z]+){1,5})/i', $categoryDetails, $matches)) {
+            foreach ($matches[1] as $match) {
+                $name = trim($match);
+                if (!empty($name) && strlen($name) > 3) {
+                    $textElements[] = ucwords($name);
+                }
+            }
+        }
+
+        // Extract quoted text
+        if (preg_match_all('/"([^"]+)"|\'([^\']+)\'/', $categoryDetails, $matches)) {
+            foreach ($matches[1] as $match) {
+                if (!empty($match)) {
+                    $textElements[] = trim($match);
+                }
+            }
+            foreach ($matches[2] as $match) {
+                if (!empty($match)) {
+                    $textElements[] = trim($match);
+                }
+            }
+        }
+
+        // Extract important phrases (sentences with keywords like "grand opening", "ceremony", etc.)
+        $importantKeywords = ['grand opening', 'ceremony', 'sale', 'offer', 'special', 'event', 'announcement'];
+        foreach ($importantKeywords as $keyword) {
+            if (stripos($categoryDetails, $keyword) !== false) {
+                // Extract sentence containing keyword
+                $sentences = preg_split('/[.!?]+/', $categoryDetails);
+                foreach ($sentences as $sentence) {
+                    if (stripos($sentence, $keyword) !== false) {
+                        $sentence = trim($sentence);
+                        if (strlen($sentence) > 10 && strlen($sentence) < 100) {
+                            $textElements[] = ucfirst($sentence);
+                        }
+                    }
+                }
+            }
+        }
+
+        // If no specific elements found, extract key phrases (capitalized words or important terms)
+        if (empty($textElements)) {
+            // Extract capitalized phrases (likely important)
+            if (preg_match_all('/\b[A-Z][a-z]+(?:\s+[A-Z][a-z]+){1,3}\b/', $categoryDetails, $matches)) {
+                foreach ($matches[0] as $match) {
+                    if (strlen($match) > 5 && strlen($match) < 50) {
+                        $textElements[] = $match;
+                    }
+                }
+            }
+        }
+
+        return array_values(array_unique(array_filter($textElements, function($element) {
+            $trimmed = trim($element);
+            return !empty($trimmed) && strlen($trimmed) > 2;
+        })));
+    }
+
+    /**
+     * Group text elements into logical blocks (same size within blocks)
+     */
+    private function groupTextIntoBlocks(array $textElements): array
+    {
+        if (empty($textElements)) {
+            return [];
+        }
+
+        // Simple grouping: each element is its own block for now
+        // Can be enhanced to group related elements
+        $blocks = [];
+        foreach ($textElements as $element) {
+            $blocks[] = [$element];
+        }
+
+        return $blocks;
     }
 }
 

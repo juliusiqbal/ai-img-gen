@@ -4,9 +4,11 @@ namespace App\Http\Controllers;
 
 use App\Models\Category;
 use App\Models\GenerationJob;
+use App\Models\Template;
 use App\Services\AIImageGenerationService;
 use App\Services\DimensionCalculatorService;
 use App\Services\ImageProcessingService;
+use App\Services\OpenAIService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -17,7 +19,8 @@ class GenerationController extends Controller
     public function __construct(
         private AIImageGenerationService $aiService,
         private DimensionCalculatorService $dimensionCalculator,
-        private ImageProcessingService $imageService
+        private ImageProcessingService $imageService,
+        private OpenAIService $openAIService
     ) {}
 
     /**
@@ -33,11 +36,25 @@ class GenerationController extends Controller
             'category_name' => 'nullable|string|max:255',
             'category_details' => 'nullable|string|max:2000',
             'image' => 'nullable|image|mimes:jpeg,png,webp|max:10240',
+            'images' => 'nullable|array',
+            'images.*' => 'nullable|image|mimes:jpeg,png,webp|max:10240',
             'width' => 'nullable|numeric|min:1',
             'height' => 'nullable|numeric|min:1',
             'unit' => 'nullable|in:mm,cm,inches,in,pixels,px',
             'standard_size' => 'nullable|string',
             'template_count' => 'nullable|integer|min:1|max:10',
+            'use_dalle3' => 'nullable|boolean',
+            // Structured design preferences
+            'project_name' => 'nullable|string|max:255',
+            'template_type' => 'nullable|in:poster,banner,brochure,postcard,flyer,social',
+            'keywords' => 'nullable|string|max:500',
+            'text_blocks' => 'nullable|array|max:5',
+            'text_blocks.*' => 'nullable|string|max:200',
+            'font_family' => 'nullable|in:arial,helvetica,serif,sans-serif,times,courier',
+            'font_sizes' => 'nullable|array',
+            'color_theme' => 'nullable|string|max:50',
+            'background_color' => 'nullable|string|max:50',
+            'image_style' => 'nullable|string|max:50',
         ]);
 
         try {
@@ -63,10 +80,26 @@ class GenerationController extends Controller
                 return response()->json(['error' => 'Category ID or name is required'], 400);
             }
 
-            // Handle image upload
+            // Handle image upload(s) - support both single and multiple images
             $imagePath = null;
-            if ($request->hasFile('image')) {
+            $imagePaths = [];
+            
+            if ($request->hasFile('images') && is_array($request->file('images'))) {
+                // Multiple images provided
+                foreach ($request->file('images') as $file) {
+                    if ($file && $file->isValid()) {
+                        $storedPath = $this->imageService->storeImage($file, $category->name);
+                        if ($storedPath) {
+                            $imagePaths[] = $storedPath;
+                        }
+                    }
+                }
+            } elseif ($request->hasFile('image')) {
+                // Single image provided (backward compatibility)
                 $imagePath = $this->imageService->storeImage($request->file('image'), $category->name);
+                if ($imagePath) {
+                    $imagePaths = [$imagePath];
+                }
             }
 
             // Calculate printing dimensions
@@ -92,12 +125,54 @@ class GenerationController extends Controller
             ]);
 
             // Generate templates
-            $templateCount = $request->template_count ?? 4;
+            $templateCount = $request->template_count ?? 1;
+            $useDalle3 = filter_var($request->use_dalle3 ?? false, FILTER_VALIDATE_BOOLEAN);
+            
+            // Collect structured design preferences if provided
+            $designPreferences = null;
+            if ($request->has('template_type') || $request->has('keywords') || $request->has('text_blocks')) {
+                // Handle text_blocks array (can come as indexed array or associative)
+                $textBlocks = [];
+                if ($request->has('text_blocks')) {
+                    $textBlocksInput = $request->input('text_blocks', []);
+                    if (is_array($textBlocksInput)) {
+                        // Filter out empty values and reindex
+                        $textBlocks = array_values(array_filter($textBlocksInput, function($block) {
+                            return !empty($block) && is_string($block);
+                        }));
+                    }
+                }
+
+                // Handle font_sizes array
+                $fontSizes = [];
+                if ($request->has('font_sizes')) {
+                    $fontSizesInput = $request->input('font_sizes', []);
+                    if (is_array($fontSizesInput)) {
+                        $fontSizes = array_values($fontSizesInput);
+                    }
+                }
+
+                $designPreferences = [
+                    'template_type' => $request->template_type,
+                    'keywords' => $request->keywords,
+                    'text_blocks' => $textBlocks,
+                    'font_family' => $request->font_family,
+                    'font_sizes' => $fontSizes,
+                    'color_theme' => $request->color_theme,
+                    'background_color' => $request->background_color,
+                    'image_style' => $request->image_style,
+                    'project_name' => $request->project_name,
+                ];
+            }
+            
             $templates = $this->aiService->generateTemplates(
                 $category,
                 $imagePath,
                 $printingDimensions,
-                $templateCount
+                $templateCount,
+                $imagePaths,
+                $useDalle3,
+                $designPreferences
             );
 
             $job->update([
@@ -153,6 +228,159 @@ class GenerationController extends Controller
                 'message' => $errorMessage,
                 'details' => config('app.debug') ? $e->getMessage() : null,
             ], $statusCode);
+        }
+    }
+
+    /**
+     * Preview GPT-4 generated prompts without generating images
+     */
+    public function previewPrompts(Request $request): JsonResponse
+    {
+        $request->validate([
+            'category_id' => 'nullable|exists:categories,id',
+            'category_name' => 'nullable|string|max:255',
+            'category_details' => 'nullable|string|max:2000',
+            'template_type' => 'nullable|in:poster,banner,brochure,postcard,flyer,social',
+            'keywords' => 'nullable|string|max:500',
+            'text_blocks' => 'nullable|array|max:5',
+            'text_blocks.*' => 'nullable|string|max:200',
+            'font_family' => 'nullable|in:arial,helvetica,serif,sans-serif,times,courier',
+            'font_sizes' => 'nullable|array',
+            'color_theme' => 'nullable|string|max:50',
+            'background_color' => 'nullable|string|max:50',
+            'image_style' => 'nullable|string|max:50',
+            'number_of_templates' => 'nullable|integer|min:1|max:10',
+        ]);
+
+        try {
+            // Get category info
+            $categoryName = '';
+            $categoryDetails = '';
+            
+            if ($request->category_id) {
+                $category = Category::findOrFail($request->category_id);
+                $categoryName = $category->name;
+                $categoryDetails = $category->details ?? '';
+            } elseif ($request->category_name) {
+                $categoryName = $request->category_name;
+                $categoryDetails = $request->category_details ?? '';
+            }
+
+            // Build design preferences
+            $designPreferences = [
+                'template_type' => $request->template_type ?? 'poster',
+                'keywords' => $request->keywords ?? '',
+                'text_blocks' => $request->text_blocks ?? [],
+                'font_family' => $request->font_family ?? '',
+                'font_sizes' => $request->font_sizes ?? [],
+                'color_theme' => $request->color_theme ?? '',
+                'background_color' => $request->background_color ?? '',
+                'image_style' => $request->image_style ?? 'realistic',
+                'number_of_templates' => $request->number_of_templates ?? 1,
+                'category_name' => $categoryName,
+                'category_details' => $categoryDetails,
+            ];
+
+            // Generate prompts using GPT-4
+            $prompts = $this->openAIService->generateStructuredPrompts($designPreferences);
+
+            return response()->json([
+                'prompts' => $prompts,
+                'count' => count($prompts),
+            ]);
+        } catch (\Exception $e) {
+            Log::error('Preview prompts error: ' . $e->getMessage());
+            return response()->json([
+                'error' => 'Failed to preview prompts',
+                'message' => $e->getMessage(),
+            ], 500);
+        }
+    }
+
+    /**
+     * Regenerate a specific template
+     */
+    public function regenerateTemplate(Request $request, int $id): JsonResponse
+    {
+        \set_time_limit(300);
+
+        $request->validate([
+            'use_dalle3' => 'nullable|boolean',
+            // Allow updating design preferences
+            'template_type' => 'nullable|in:poster,banner,brochure,postcard,flyer,social',
+            'keywords' => 'nullable|string|max:500',
+            'text_blocks' => 'nullable|array|max:5',
+            'font_family' => 'nullable|in:arial,helvetica,serif,sans-serif,times,courier',
+            'color_theme' => 'nullable|string|max:50',
+            'background_color' => 'nullable|string|max:50',
+            'image_style' => 'nullable|string|max:50',
+        ]);
+
+        try {
+            DB::beginTransaction();
+
+            $template = Template::with('category')->findOrFail($id);
+            $category = $template->category;
+
+            // Get original design preferences or use new ones
+            $designPreferences = $template->design_preferences ?? [];
+            
+            // Update with new preferences if provided
+            if ($request->has('template_type')) {
+                $designPreferences['template_type'] = $request->template_type;
+            }
+            if ($request->has('keywords')) {
+                $designPreferences['keywords'] = $request->keywords;
+            }
+            if ($request->has('text_blocks')) {
+                $designPreferences['text_blocks'] = $request->text_blocks;
+            }
+            if ($request->has('font_family')) {
+                $designPreferences['font_family'] = $request->font_family;
+            }
+            if ($request->has('color_theme')) {
+                $designPreferences['color_theme'] = $request->color_theme;
+            }
+            if ($request->has('background_color')) {
+                $designPreferences['background_color'] = $request->background_color;
+            }
+            if ($request->has('image_style')) {
+                $designPreferences['image_style'] = $request->image_style;
+            }
+
+            $useDalle3 = filter_var($request->use_dalle3 ?? true, FILTER_VALIDATE_BOOLEAN);
+
+            // Regenerate single template
+            $templates = $this->aiService->generateTemplates(
+                $category,
+                null,
+                $template->printing_dimensions ?? [],
+                1,
+                [],
+                $useDalle3,
+                !empty($designPreferences) ? $designPreferences : null
+            );
+
+            if (empty($templates)) {
+                throw new \Exception('Failed to regenerate template');
+            }
+
+            $newTemplate = $templates[0];
+
+            DB::commit();
+
+            return response()->json([
+                'message' => 'Template regenerated successfully',
+                'template' => $newTemplate,
+            ], 201);
+        } catch (\Exception $e) {
+            DB::rollBack();
+            Log::error('Template regeneration error: ' . $e->getMessage());
+            
+            return response()->json([
+                'error' => 'Regeneration failed',
+                'message' => $e->getMessage(),
+            ], 500);
         }
     }
 
