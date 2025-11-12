@@ -19,7 +19,7 @@ class OpenAIService
     /**
      * Generate image using DALL-E 3
      */
-    public function generateImage(string $prompt, string $size = '1024x1024', int $n = 1): array
+    public function generateImage(string $prompt, string $size = '1024x1024'): array
     {
         if (empty($this->apiKey)) {
             throw new \Exception('OpenAI API key is not configured');
@@ -38,10 +38,11 @@ class OpenAIService
             ])->retry(2, 500)->timeout(120)->post("{$this->baseUrl}/images/generations", [
                 'model' => 'dall-e-3',
                 'prompt' => $prompt, // Send EXACT prompt from GPT-4, no modifications
-                'n' => $n,
+                'n' => 1,
                 'size' => $size,
                 'quality' => 'hd',
                 'response_format' => 'url',
+                'style' => 'vivid',
             ]);
 
             if ($response->failed()) {
