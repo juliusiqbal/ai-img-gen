@@ -41,11 +41,9 @@ class AIImageGenerationService
                 $imageDescription = $this->analyzeMultipleImagesContext($uploadedImagePaths, $category->name);
             }
 
-            // Check if structured design preferences are provided
             $hasStructuredPreferences = !empty($designPreferences) && (
                 !empty($designPreferences['template_type']) ||
-                !empty($designPreferences['keywords']) ||
-                !empty($designPreferences['text_blocks'])
+                !empty($designPreferences['keywords'])
             );
 
             if ($hasStructuredPreferences) {
