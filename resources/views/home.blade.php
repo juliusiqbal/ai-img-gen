@@ -22,7 +22,7 @@
             <div class="col-md-4">
                 <div class="bg-white border rounded p-3 h-100">
                     <h3 class="h6 fw-semibold mb-2">AI-Powered Generation</h3>
-                    <p class="text-muted small mb-0">Generate multiple template variations using DALL-E 3</p>
+                    <p class="text-muted small mb-0">Generate multiple template variations using GPT Image 1</p>
                 </div>
             </div>
             <div class="col-md-4">
@@ -60,5 +60,3 @@
     </div>
 </div>
 @endsection
-
-
