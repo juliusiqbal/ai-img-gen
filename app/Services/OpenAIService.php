@@ -40,7 +40,6 @@ class OpenAIService
                 'n' => 1,
                 'size' => $size,
                 'quality' => 'low',
-                'style' => 'vivid',
             ]);
 
             if ($response->failed()) {
