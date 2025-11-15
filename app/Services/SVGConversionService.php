@@ -20,26 +20,21 @@ class SVGConversionService
             return false;
         }
 
-        // Check if potrace is available (Windows uses 'where', Unix uses 'which')
         $potraceCheck = new Process(['where', 'potrace']);
         $potraceCheck->run();
 
         if (!$potraceCheck->isSuccessful()) {
-            // Try 'which' on Unix systems
             $potraceCheck = new Process(['which', 'potrace']);
             $potraceCheck->run();
         }
 
         if (!$potraceCheck->isSuccessful()) {
-            // Fallback: create simple SVG wrapper
             return $this->createSimpleSVGWrapper($fullImagePath, $fullOutputPath, $options);
         }
 
-        // First convert to PBM format (Potrace input)
         $pbmPath = str_replace('.svg', '.pbm', $fullOutputPath);
 
         try {
-            // Use ImageMagick to convert to PBM
             $imagemagickProcess = new Process([
                 'convert',
                 $fullImagePath,
@@ -64,12 +59,10 @@ class SVGConversionService
             $potraceProcess = new Process(['potrace', ...$potraceArgs]);
             $potraceProcess->run();
 
-            // Clean up PBM file
             if (file_exists($pbmPath)) {
                 unlink($pbmPath);
             }
 
-            // Update SVG dimensions if provided
             if (isset($options['width']) && isset($options['height'])) {
                 $this->updateSVGDimensions($fullOutputPath, $options['width'], $options['height']);
             }
@@ -77,7 +70,6 @@ class SVGConversionService
             return file_exists($fullOutputPath);
         } catch (\Exception $e) {
             Log::error('Potrace conversion failed: ' . $e->getMessage());
-            // Fallback to simple SVG wrapper
             return $this->createSimpleSVGWrapper($fullImagePath, $fullOutputPath, $options);
         }
     }
@@ -90,7 +82,6 @@ class SVGConversionService
         $width = $options['width'] ?? 800;
         $height = $options['height'] ?? 600;
 
-        // Get image base64 data
         $imageData = file_get_contents($imagePath);
         $base64 = base64_encode($imageData);
         $mimeType = mime_content_type($imagePath);
@@ -130,7 +121,6 @@ class SVGConversionService
 
         $svgContent = file_get_contents($svgPath);
 
-        // Update width and height attributes
         $svgContent = preg_replace(
             '/width="[^"]*"/',
             'width="' . $width . '"',
@@ -143,7 +133,6 @@ class SVGConversionService
             $svgContent
         );
 
-        // Update viewBox
         $viewBox = "0 0 {$width} {$height}";
         $svgContent = preg_replace(
             '/viewBox="[^"]*"/',
@@ -151,7 +140,6 @@ class SVGConversionService
             $svgContent
         );
 
-        // If viewBox doesn't exist, add it after width/height
         if (strpos($svgContent, 'viewBox') === false) {
             $svgContent = preg_replace(
                 '/(<svg[^>]*height="[^"]*")/',
@@ -169,13 +157,9 @@ class SVGConversionService
      */
     public function optimizeSVG(string $svgPath): bool
     {
-        // Basic optimization - remove comments and whitespace
         $content = file_get_contents($svgPath);
 
-        // Remove XML comments
         $content = preg_replace('/<!--.*?-->/s', '', $content);
-
-        // Remove extra whitespace
         $content = preg_replace('/\s+/', ' ', $content);
         $content = preg_replace('/>\s+</', '><', $content);
 
