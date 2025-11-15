@@ -48,7 +48,6 @@ class GenerationController extends Controller
             'font_sizes' => 'nullable|array',
             'color_theme' => 'nullable|string|max:50',
             'background_color' => 'nullable|string|max:50',
-            'image_style' => 'nullable|string|max:50',
         ]);
 
         try {
@@ -122,7 +121,6 @@ class GenerationController extends Controller
                     'font_sizes' => $fontSizes,
                     'color_theme' => $request->color_theme,
                     'background_color' => $request->background_color,
-                    'image_style' => $request->image_style,
                     'project_name' => $request->project_name,
                 ];
             }
@@ -206,7 +204,6 @@ class GenerationController extends Controller
             'font_sizes' => 'nullable|array',
             'color_theme' => 'nullable|string|max:50',
             'background_color' => 'nullable|string|max:50',
-            'image_style' => 'nullable|string|max:50',
             'number_of_templates' => 'nullable|integer|min:1|max:10',
         ]);
 
@@ -227,7 +224,6 @@ class GenerationController extends Controller
                 'font_sizes' => $request->font_sizes ?? [],
                 'color_theme' => $request->color_theme ?? '',
                 'background_color' => $request->background_color ?? '',
-                'image_style' => $request->image_style ?? 'realistic',
                 'number_of_templates' => $request->number_of_templates ?? 1,
                 'category_name' => $categoryName,
             ];
@@ -260,7 +256,6 @@ class GenerationController extends Controller
             'font_family' => 'nullable|in:arial,helvetica,serif,sans-serif,times,courier',
             'color_theme' => 'nullable|string|max:50',
             'background_color' => 'nullable|string|max:50',
-            'image_style' => 'nullable|string|max:50',
         ]);
 
         try {
@@ -285,9 +280,6 @@ class GenerationController extends Controller
             }
             if ($request->has('background_color')) {
                 $designPreferences['background_color'] = $request->background_color;
-            }
-            if ($request->has('image_style')) {
-                $designPreferences['image_style'] = $request->image_style;
             }
 
             if (empty($designPreferences['category_name'])) {

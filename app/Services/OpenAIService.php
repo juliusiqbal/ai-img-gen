@@ -627,7 +627,9 @@ Return ONLY the optimized prompt text, nothing else.";
             $fontSizes = $designPreferences['font_sizes'] ?? [];
             $colorTheme = $designPreferences['color_theme'] ?? '';
             $backgroundColor = $designPreferences['background_color'] ?? '';
-            $imageStyle = $designPreferences['image_style'] ?? 'realistic';
+            // Randomly select an image style
+            $imageStyles = ['realistic', 'professional', 'minimal', 'modern', 'classic'];
+            $imageStyle = $imageStyles[array_rand($imageStyles)];
             $numberOfTemplates = $designPreferences['number_of_templates'] ?? 1;
             $categoryName = $designPreferences['category_name'] ?? '';
 

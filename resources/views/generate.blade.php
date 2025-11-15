@@ -151,18 +151,6 @@
             </div>
 
             <div class="mb-3">
-                <label class="form-label">Image Style</label>
-                <select x-model="imageStyle" class="form-select">
-                    <option value="">Default</option>
-                    <option value="realistic">Realistic</option>
-                    <option value="professional">Professional</option>
-                    <option value="minimal">Minimal</option>
-                    <option value="modern">Modern</option>
-                    <option value="classic">Classic</option>
-                </select>
-            </div>
-
-            <div class="mb-3">
                 <button type="button" @click="previewPrompts()" :disabled="loading || !canPreviewPrompts()" class="btn btn-outline-info">
                     👁️ Preview GPT-4 Prompts
                 </button>
@@ -269,7 +257,6 @@ function generatorForm() {
         fontFamily: '',
         colorTheme: '',
         backgroundColor: '',
-        imageStyle: '',
         previewedPrompts: [],
 
         async init() {
@@ -365,7 +352,6 @@ function generatorForm() {
                     font_family: this.fontFamily || null,
                     color_theme: this.colorTheme || null,
                     background_color: this.backgroundColor || null,
-                    image_style: this.imageStyle || null,
                     number_of_templates: this.templateCount,
                 };
 
@@ -444,9 +430,6 @@ function generatorForm() {
             }
             if (this.backgroundColor) {
                 formData.append('background_color', this.backgroundColor);
-            }
-            if (this.imageStyle) {
-                formData.append('image_style', this.imageStyle);
             }
 
             try {
