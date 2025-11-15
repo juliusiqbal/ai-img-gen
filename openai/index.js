@@ -1,8 +1,11 @@
+import dotenv from 'dotenv';
 import { writeFileSync } from 'fs';
 import OpenAI from 'openai';
 
+dotenv.config();
+
 const client = new OpenAI({
-  apiKey: 'sk-proj-*',
+  apiKey: process.env.OPENAI_API_KEY,
 });
 
 const response = await client.images.generate({
