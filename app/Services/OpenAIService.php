@@ -301,7 +301,7 @@ class OpenAIService
     /**
      * Refine prompt using GPT-4 for complex requests
      */
-    private function refinePromptWithGPT4(string $category, ?string $categoryDetails, ?string $imageDescription = null, int $variationIndex = 0, array $imagePaths = []): ?string
+    private function refinePromptWithGPT4(string $category, ?string $imageDescription = null, int $variationIndex = 0, array $imagePaths = []): ?string
     {
         if (empty($this->apiKey)) {
             Log::warning('OpenAI API key not configured for prompt refinement');
@@ -352,7 +352,6 @@ ABSOLUTELY FORBIDDEN: Any mention of illustration, drawing, design, graphic, vec
 Return ONLY the optimized prompt text, nothing else.";
 
             $userPrompt = "Category: {$category}\n\n";
-            $userPrompt .= "Details: {$categoryDetails}\n\n";
             
             if ($imageDescription) {
                 if (!empty($imagePaths)) {
@@ -414,7 +413,6 @@ Return ONLY the optimized prompt text, nothing else.";
                 
                 Log::info('Prompt refined with GPT-4', [
                     'category' => $category,
-                    'original_length' => strlen($categoryDetails ?? ''),
                     'refined_length' => strlen($refinedPrompt),
                     'prompt' => $refinedPrompt,
                 ]);
@@ -432,17 +430,15 @@ Return ONLY the optimized prompt text, nothing else.";
     /**
      * Generate prompt from category and image context with enhanced constraints
      */
-    public function generatePrompt(string $category, ?string $imageDescription = null, ?string $categoryDetails = null, int $variationIndex = 0, array $imagePaths = [], bool $forceGPT4Refinement = false): string
+    public function generatePrompt(string $category, ?string $imageDescription = null, int $variationIndex = 0, array $imagePaths = [], bool $forceGPT4Refinement = false): string
     {
         if ($forceGPT4Refinement) {
-            $refinedPrompt = $this->refinePromptWithGPT4($category, $categoryDetails, $imageDescription, $variationIndex, $imagePaths);
+            $refinedPrompt = $this->refinePromptWithGPT4($category, $imageDescription, $variationIndex, $imagePaths);
             if ($refinedPrompt) {
                 return $refinedPrompt;
             }
             Log::warning('GPT-4 prompt refinement failed, using basic prompt generation');
         }
-        
-        $isAdvertisement = $this->isAdvertisementRequest($categoryDetails, $category);
         
         $prompt = "MANDATORY CONSTRAINTS: ";
         $prompt .= "1. All text must be perfectly horizontal - ZERO rotation, ZERO tilt, ZERO angle, ZERO diagonal text. ";
@@ -452,33 +448,10 @@ Return ONLY the optimized prompt text, nothing else.";
         $prompt .= "5. All text must be in the same language as provided in the user's details. ";
         $prompt .= "6. Text must be clearly readable with high contrast. ";
         
-        if ($isAdvertisement) {
-            $prompt .= "Create a REAL PHOTOGRAPHIC advertisement template for {$category}. This must be a photorealistic photograph, not an illustration, design, animation, or cartoon. ";
-        } else {
-            $prompt .= "Create a REAL PHOTOGRAPHIC design template for {$category}. This must be a photorealistic photograph, not an illustration, design, animation, or cartoon. ";
-        }
-        
-        if (!empty($categoryDetails)) {
-            $prompt .= "Based on the following detailed requirements: {$categoryDetails}. ";
-            $prompt .= "The template must incorporate ALL elements and requirements specified in the details. ";
-            
-            if ($isAdvertisement) {
-                $textElements = $this->extractTextElements($categoryDetails);
-                if (!empty($textElements)) {
-                    $prompt .= "CRITICAL: Include the following text elements EXACTLY as specified, clearly visible in the design: " . implode(', ', $textElements) . ". ";
-                    $prompt .= "Use the EXACT text provided - do not translate, modify, or change the language. ";
-                    $prompt .= "Text must be horizontal, readable, professional, and integrated naturally into the design. ";
-                    $prompt .= "All text within the same block must be the same size. ";
-                }
-            }
-            
-            $prompt .= "The template should reflect these specific characteristics and incorporate all elements described in the details. ";
-            $prompt .= "Use the EXACT text and language from the details - do not translate or modify. ";
-        } else {
-            $prompt .= "MUST be relevant to {$category} and include professional {$category} theme. ";
-            $prompt .= "Include relevant visual elements for {$category}. ";
-            $prompt .= "DO NOT include elements unrelated to {$category}. ";
-        }
+        $prompt .= "Create a REAL PHOTOGRAPHIC design template for {$category}. This must be a photorealistic photograph, not an illustration, design, animation, or cartoon. ";
+        $prompt .= "MUST be relevant to {$category} and include professional {$category} theme. ";
+        $prompt .= "Include relevant visual elements for {$category}. ";
+        $prompt .= "DO NOT include elements unrelated to {$category}. ";
         
         if ($imageDescription) {
             if (!empty($imagePaths)) {
@@ -504,17 +477,6 @@ Return ONLY the optimized prompt text, nothing else.";
         $prompt .= "Every element must appear as if it was photographed in real life with natural colors, realistic materials, and authentic appearances. ";
         $prompt .= "The final output must be indistinguishable from a real professional photograph. ";
         
-        if ($isAdvertisement) {
-            $prompt .= "The advertisement should be a real photographic composition with professional, eye-catching layout and clear visual hierarchy. ";
-            $prompt .= "Use actual photographed images of real destinations, real products, or real services relevant to the advertisement - all photographed, not illustrated. ";
-            $prompt .= "Text overlays should be clearly visible, readable, and appear as if photographed on the actual scene (not digitally added). ";
-            $prompt .= "The overall photograph should look like a professional advertisement photograph suitable for print advertising, posters, or promotional materials. ";
-        }
-        
-        if (empty($categoryDetails)) {
-            $prompt .= "Use professional, modern color palette in natural, realistic tones. ";
-        }
-        
         $prompt .= "Professional typography should be incorporated. ";
         $prompt .= "REINFORCE MANDATORY CONSTRAINTS: All text must be perfectly horizontal (ZERO rotation). Use ONLY solid colors (NO gradients). Text within the same block must be IDENTICAL size. ";
         $prompt .= "Text must be clearly readable with high contrast and in the same language as provided. ";
@@ -528,96 +490,6 @@ Return ONLY the optimized prompt text, nothing else.";
         return $prompt;
     }
 
-    /**
-     * Check if the request is for an advertisement template
-     */
-    private function isAdvertisementRequest(?string $categoryDetails, string $category): bool
-    {
-        if (empty($categoryDetails)) {
-            return false;
-        }
-        
-        $advertisementKeywords = [
-            'advertisement', 'advert', 'ad', 'promo', 'promotion', 'promotional',
-            'marketing', 'poster', 'banner', 'flyer', 'brochure', 'campaign'
-        ];
-        
-        $detailsLower = strtolower($categoryDetails);
-        foreach ($advertisementKeywords as $keyword) {
-            if (strpos($detailsLower, $keyword) !== false) {
-                return true;
-            }
-        }
-        
-        return false;
-    }
-
-    /**
-     * Extract text elements from category details
-     */
-    private function extractTextElements(string $categoryDetails): array
-    {
-        $textElements = [];
-        
-        if (preg_match_all('/\b(?:in|for|to|visit|travel|tour)\s+([a-z]+(?:\s+[a-z]+){0,3})/i', $categoryDetails, $matches)) {
-            foreach ($matches[1] as $match) {
-                $location = trim($match);
-                $skipWords = ['the', 'a', 'an', 'and', 'or', 'with', 'add'];
-                $words = explode(' ', strtolower($location));
-                $validWords = array_filter($words, function($word) use ($skipWords) {
-                    return !in_array($word, $skipWords) && strlen($word) > 2;
-                });
-                if (!empty($validWords)) {
-                    $location = implode(' ', $validWords);
-                    $textElements[] = ucwords($location);
-                }
-            }
-        }
-        
-        if (preg_match_all('/(?:add\s+)?(\d+)\s*%?\s*(?:off|discount|disc|percent)/i', $categoryDetails, $matches)) {
-            foreach ($matches[1] as $match) {
-                $discount = trim($match) . '%';
-                $textElements[] = $discount . ' OFF';
-            }
-        }
-        
-        if (preg_match_all('/add\s+(?:agency\s+name|company\s+name|name)\s+([a-z]+(?:\s+(?:and|tour|travels|travel|agency|company)?\s*[a-z]+){1,5})/i', $categoryDetails, $matches)) {
-            foreach ($matches[1] as $match) {
-                $name = trim($match);
-                if (!empty($name) && strlen($name) > 3) {
-                    $textElements[] = ucwords($name);
-                }
-            }
-        }
-        
-        if (preg_match_all('/\b([A-Z][a-z]+(?:\s+(?:and|tour|travels|travel|agency|company)\s*[A-Z][a-z]+)+)/', $categoryDetails, $matches)) {
-            foreach ($matches[1] as $match) {
-                $name = trim($match);
-                if (preg_match('/\b(tour|travels|travel|agency|company)\b/i', $name)) {
-                    $textElements[] = $name;
-                }
-            }
-        }
-        
-        if (preg_match_all('/"([^"]+)"|\'([^\']+)\'/', $categoryDetails, $matches)) {
-            foreach ($matches[1] as $match) {
-                if (!empty($match)) {
-                    $textElements[] = trim($match);
-                }
-            }
-            foreach ($matches[2] as $match) {
-                if (!empty($match)) {
-                    $textElements[] = trim($match);
-                }
-            }
-        }
-        
-        $textElements = array_filter(array_unique($textElements), function($element) {
-            return !empty(trim($element));
-        });
-        
-        return array_values($textElements);
-    }
 
     /**
      * Get variation-specific instructions
@@ -637,13 +509,13 @@ Return ONLY the optimized prompt text, nothing else.";
     /**
      * Generate multiple variations with meaningful differences
      */
-    public function generateVariations(string $category, ?string $imageDescription = null, ?string $categoryDetails = null, int $count = 1, array $imagePaths = [], bool $forceGPT4Refinement = false): array
+    public function generateVariations(string $category, ?string $imageDescription = null, int $count = 1, array $imagePaths = [], bool $forceGPT4Refinement = false): array
     {
         $images = [];
 
         for ($i = 0; $i < $count; $i++) {
             try {
-                $variationPrompt = $this->generatePrompt($category, $imageDescription, $categoryDetails, $i, $imagePaths, $forceGPT4Refinement);
+                $variationPrompt = $this->generatePrompt($category, $imageDescription, $i, $imagePaths, $forceGPT4Refinement);
                 
                 $result = $this->generateImage($variationPrompt);
 
@@ -666,7 +538,7 @@ Return ONLY the optimized prompt text, nothing else.";
     /**
      * Generate 2-3 random text blocks related to category and keywords using GPT-4o
      */
-    private function generateTextBlocks(string $categoryName, string $categoryDetails, string $keywords): array
+    private function generateTextBlocks(string $categoryName, string $keywords): array
     {
         if (empty($this->apiKey)) {
             Log::warning('OpenAI API key not configured for text block generation');
@@ -681,9 +553,6 @@ Return ONLY the optimized prompt text, nothing else.";
             $userPrompt = "Generate {$numberOfBlocks} text blocks for:\n";
             if ($categoryName) {
                 $userPrompt .= "Category: {$categoryName}\n";
-            }
-            if ($categoryDetails) {
-                $userPrompt .= "Category Details: {$categoryDetails}\n";
             }
             if ($keywords) {
                 $userPrompt .= "Keywords: {$keywords}\n";
@@ -761,9 +630,8 @@ Return ONLY the optimized prompt text, nothing else.";
             $imageStyle = $designPreferences['image_style'] ?? 'realistic';
             $numberOfTemplates = $designPreferences['number_of_templates'] ?? 1;
             $categoryName = $designPreferences['category_name'] ?? '';
-            $categoryDetails = $designPreferences['category_details'] ?? '';
 
-            $textBlocks = $this->generateTextBlocks($categoryName, $categoryDetails, $keywords);
+            $textBlocks = $this->generateTextBlocks($categoryName, $keywords);
             $designPreferences['text_blocks'] = $textBlocks;
             
             if (empty($fontSizes) && !empty($textBlocks)) {
@@ -788,9 +656,6 @@ Generate {$numberOfTemplates} unique, professional prompts that will create real
             
             if ($categoryName) {
                 $userPrompt .= "Category: {$categoryName}\n";
-            }
-            if ($categoryDetails) {
-                $userPrompt .= "Category Details: {$categoryDetails}\n";
             }
             if ($keywords) {
                 $userPrompt .= "Keywords: {$keywords}\n";

@@ -11,7 +11,7 @@
             <label class="form-label">Category</label>
             <div class="row g-3">
                 <div class="col-md-6">
-                    <select x-model="selectedCategoryId" @change="if(selectedCategoryId) { categoryName = ''; categoryDetails = ''; }" class="form-select">
+                    <select x-model="selectedCategoryId" @change="if(selectedCategoryId) { categoryName = ''; }" class="form-select">
                         <option value="">Select existing category</option>
                         <template x-for="cat in categories" :key="cat.id">
                             <option :value="cat.id" x-text="cat.name"></option>
@@ -21,12 +21,6 @@
                 <div class="col-md-6">
                     <input type="text" x-model="categoryName" @input="if(categoryName) { selectedCategoryId = ''; }" placeholder="Or enter new category name" class="form-control">
                 </div>
-            </div>
-            <div class="mt-3">
-                <label class="form-label">Category Details (Optional)</label>
-                <textarea x-model="categoryDetails" 
-                          class="form-control" 
-                          rows="4"></textarea>
             </div>
         </div>
 
@@ -259,7 +253,6 @@ function generatorForm() {
         baseUrl: window.location.origin,
         selectedCategoryId: '',
         categoryName: '',
-        categoryDetails: '',
         uploadedImage: null,
         uploadedImages: [],
         standardSize: '',
@@ -367,7 +360,6 @@ function generatorForm() {
                 const payload = {
                     category_id: this.selectedCategoryId || null,
                     category_name: this.categoryName || null,
-                    category_details: this.categoryDetails || null,
                     template_type: this.templateType || null,
                     keywords: this.keywords || null,
                     font_family: this.fontFamily || null,
@@ -411,14 +403,8 @@ function generatorForm() {
             
             if (this.selectedCategoryId) {
                 formData.append('category_id', this.selectedCategoryId);
-                if (this.categoryDetails) {
-                    formData.append('category_details', this.categoryDetails);
-                }
             } else if (this.categoryName) {
                 formData.append('category_name', this.categoryName);
-                if (this.categoryDetails) {
-                    formData.append('category_details', this.categoryDetails);
-                }
             }
 
             if (this.uploadedImages.length > 0) {
