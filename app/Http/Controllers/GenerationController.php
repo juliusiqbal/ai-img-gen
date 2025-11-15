@@ -156,7 +156,6 @@ class GenerationController extends Controller
                 ]);
             }
 
-            // Parse OpenAI error messages for user-friendly responses
             $errorMessage = $e->getMessage();
             $statusCode = 500;
 

@@ -124,7 +124,6 @@ class DownloadController extends Controller
         } elseif ($request->has('project_name') && $request->project_name) {
             $templates = Template::where('project_name', $request->project_name)->get();
         } else {
-            // Download all templates
             $templates = Template::all();
         }
 
@@ -132,7 +131,6 @@ class DownloadController extends Controller
             abort(400, 'No templates found');
         }
 
-        // Ensure temp directory exists
         $tempDir = storage_path('app/temp');
         if (!is_dir($tempDir)) {
             mkdir($tempDir, 0755, true);

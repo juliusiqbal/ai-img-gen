@@ -58,12 +58,10 @@ class DimensionCalculatorService
             $svgWidth = $width * 96;
             $svgHeight = $height * 96;
         } else {
-            // Assume pixels
             $svgWidth = $width;
             $svgHeight = $height;
         }
 
-        // Maintain aspect ratio if provided
         if ($aspectRatio && $aspectRatio > 0) {
             if ($svgWidth / $svgHeight > $aspectRatio) {
                 $svgHeight = $svgWidth / $aspectRatio;
@@ -93,7 +91,6 @@ class DimensionCalculatorService
             default => $value,
         };
 
-        // Convert from millimeters to target unit
         return match ($toUnit) {
             'mm' => $mmValue,
             'cm' => $mmValue / 10,
