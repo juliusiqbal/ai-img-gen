@@ -24,8 +24,7 @@ class CategoryController extends Controller
     public function store(StoreCategoryRequest $request): JsonResponse
     {
         $category = Category::firstOrCreate(
-            ['name' => $request->name],
-            ['description' => $request->description]
+            ['name' => $request->name]
         );
 
         return response()->json($category, 201);

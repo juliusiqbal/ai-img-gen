@@ -48,7 +48,6 @@ class AIImageGenerationService
                 ]);
 
                 $designPreferences['category_name'] = $category->name;
-                $designPreferences['category_details'] = $category->details ?? '';
                 $designPreferences['number_of_templates'] = $templateCount;
 
                 $structuredPrompts = $this->openAIService->generateStructuredPrompts($designPreferences);
@@ -78,7 +77,6 @@ class AIImageGenerationService
                 $generatedImages = $this->openAIService->generateVariations(
                     $category->name,
                     $imageDescription,
-                    $category->details,
                     $templateCount,
                     $uploadedImagePaths,
                     true

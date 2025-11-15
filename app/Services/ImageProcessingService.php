@@ -17,7 +17,6 @@ class ImageProcessingService
         $filename = uniqid() . '_' . time() . '.' . $file->getClientOriginalExtension();
         $path = $category ? "uploads/{$category}/{$filename}" : "uploads/{$filename}";
 
-        // Ensure directory exists
         $fullPath = storage_path('app/public/' . $path);
         $dir = dirname($fullPath);
         if (!is_dir($dir)) {
@@ -31,7 +30,6 @@ class ImageProcessingService
             }
         }
 
-        // Use Storage facade to store the file - more reliable
         try {
             $stored = Storage::disk('public')->putFileAs(
                 dirname($path),
@@ -47,7 +45,6 @@ class ImageProcessingService
                 throw new \Exception("Failed to store uploaded image: {$path}");
             }
 
-            // Verify file exists
             $exists = Storage::disk('public')->exists($path);
             $fullStoragePath = storage_path('app/public/' . $path);
             $fileExists = file_exists($fullStoragePath);
@@ -141,7 +138,6 @@ class ImageProcessingService
             $originalHeight = $info[1];
             $mimeType = $info['mime'];
 
-            // Create image resource from file
             $sourceImage = match ($mimeType) {
                 'image/jpeg', 'image/jpg' => imagecreatefromjpeg($fullPath),
                 'image/png' => imagecreatefrompng($fullPath),
@@ -153,10 +149,8 @@ class ImageProcessingService
                 return false;
             }
 
-            // Create new image
             $newImage = imagecreatetruecolor($width, $height);
 
-            // Preserve transparency for PNG
             if ($mimeType === 'image/png') {
                 imagealphablending($newImage, false);
                 imagesavealpha($newImage, true);
@@ -164,10 +158,8 @@ class ImageProcessingService
                 imagefill($newImage, 0, 0, $transparent);
             }
 
-            // Resize
             imagecopyresampled($newImage, $sourceImage, 0, 0, 0, 0, $width, $height, $originalWidth, $originalHeight);
 
-            // Save
             $dir = dirname($outputFullPath);
             if (!is_dir($dir)) {
                 mkdir($dir, 0755, true);
@@ -207,7 +199,6 @@ class ImageProcessingService
      * Create professional template from GPT-4 guidance when no images are uploaded
      */
     public function createProfessionalTemplateFromGPT4(
-        ?string $categoryDetails,
         array $dimensions = [],
         int $templateCount = 1
     ): array {
@@ -215,26 +206,14 @@ class ImageProcessingService
         $canvasWidth = $dimensions['width'] ?? 1024;
         $canvasHeight = $dimensions['height'] ?? 1024;
 
-        // Extract text elements from category details
-        $textElements = $this->extractTextFromDetails($categoryDetails);
-
         for ($i = 0; $i < $templateCount; $i++) {
             try {
-                // Create canvas
                 $canvas = imagecreatetruecolor($canvasWidth, $canvasHeight);
 
-                // Create attractive background
                 $this->createAttractiveBackground($canvas, $canvasWidth, $canvasHeight, $i);
 
-                // Add decorative elements
                 $this->addDecorativeElements($canvas, $canvasWidth, $canvasHeight, $i);
 
-                // Add text overlays with professional styling (no images, text-focused)
-                if (!empty($textElements)) {
-                    $this->addTextOverlays($canvas, $textElements, $canvasWidth, $canvasHeight, $i);
-                }
-
-                // Save template
                 $outputPath = 'generated/gpt4_template_' . uniqid() . '_' . time() . '_' . $i . '.png';
                 $outputFullPath = storage_path('app/public/' . $outputPath);
 
@@ -265,7 +244,6 @@ class ImageProcessingService
      */
     public function createCompositeTemplate(
         array $imagePaths,
-        ?string $categoryDetails,
         array $dimensions = [],
         int $templateCount = 1
     ): array {
@@ -273,26 +251,14 @@ class ImageProcessingService
         $canvasWidth = $dimensions['width'] ?? 1024;
         $canvasHeight = $dimensions['height'] ?? 1024;
 
-        // Extract text elements from category details
-        $textElements = $this->extractTextFromDetails($categoryDetails);
-
         for ($i = 0; $i < $templateCount; $i++) {
             try {
-                // Create canvas
                 $canvas = imagecreatetruecolor($canvasWidth, $canvasHeight);
 
-                // Create attractive background (gradient or solid color based on variation)
                 $this->createAttractiveBackground($canvas, $canvasWidth, $canvasHeight, $i);
 
-                // Arrange images with attractive layouts (different for each variation)
                 $this->arrangeImagesOnCanvas($canvas, $imagePaths, $canvasWidth, $canvasHeight, $i);
 
-                // Add text overlays with professional styling
-                if (!empty($textElements)) {
-                    $this->addTextOverlays($canvas, $textElements, $canvasWidth, $canvasHeight, $i);
-                }
-
-                // Save template
                 $outputPath = 'generated/composite_' . uniqid() . '_' . time() . '_' . $i . '.png';
                 $outputFullPath = storage_path('app/public/' . $outputPath);
 
@@ -323,7 +289,6 @@ class ImageProcessingService
      */
     private function createAttractiveBackground($canvas, int $canvasWidth, int $canvasHeight, int $variationIndex): void
     {
-        // Different background styles for variations
         $bgStyles = [
             0 => ['r' => 255, 'g' => 255, 'b' => 255], // White
             1 => ['r' => 248, 'g' => 248, 'b' => 252], // Light gray-blue
@@ -335,7 +300,6 @@ class ImageProcessingService
         $bgColor = imagecolorallocate($canvas, $style['r'], $style['g'], $style['b']);
         imagefill($canvas, 0, 0, $bgColor);
 
-        // Add subtle decorative elements
         $this->addDecorativeElements($canvas, $canvasWidth, $canvasHeight, $variationIndex);
     }
 
@@ -344,20 +308,14 @@ class ImageProcessingService
      */
     private function addDecorativeElements($canvas, int $canvasWidth, int $canvasHeight, int $variationIndex): void
     {
-        // Add subtle decorative lines or shapes
         $decorColor = imagecolorallocate($canvas, 230, 230, 235);
 
-        // Top decorative line
         imageline($canvas, 0, 2, $canvasWidth, 2, $decorColor);
-        // Bottom decorative line
         imageline($canvas, 0, $canvasHeight - 3, $canvasWidth, $canvasHeight - 3, $decorColor);
 
-        // Add corner accents for some variations
         if ($variationIndex % 2 === 0) {
             $accentColor = imagecolorallocate($canvas, 240, 240, 245);
-            // Top-left corner accent
             imagefilledrectangle($canvas, 0, 0, 50, 3, $accentColor);
-            // Bottom-right corner accent
             imagefilledrectangle($canvas, $canvasWidth - 50, $canvasHeight - 3, $canvasWidth, $canvasHeight, $accentColor);
         }
     }
@@ -415,13 +373,10 @@ class ImageProcessingService
 
         Log::info("Successfully loaded " . count($images) . " images for canvas arrangement");
 
-        // Use actual loaded image count, not path count
         $loadedImageCount = count($images);
 
-        // Store image positions for adding frames/shadows
         $imagePositions = [];
 
-        // Calculate positions first (without drawing)
         if ($loadedImageCount === 1) {
             $imagePositions = $this->calculateSingleImageLayout($images[0], $canvasWidth, $canvasHeight, $variationIndex);
         } elseif ($loadedImageCount === 2) {
@@ -430,12 +385,10 @@ class ImageProcessingService
             $imagePositions = $this->calculateMultipleImagesLayout($images, $canvasWidth, $canvasHeight, $variationIndex);
         }
 
-        // Draw shadows first (behind images)
         foreach ($imagePositions as $pos) {
             $this->addImageShadow($canvas, $pos['x'], $pos['y'], $pos['width'], $pos['height']);
         }
 
-        // Draw images
         if ($loadedImageCount === 1) {
             $this->drawSingleImage($canvas, $imagePositions[0]);
         } elseif ($loadedImageCount === 2) {
@@ -444,12 +397,10 @@ class ImageProcessingService
             $this->drawMultipleImages($canvas, $imagePositions);
         }
 
-        // Add professional frames (on top)
         foreach ($imagePositions as $pos) {
             $this->addImageFrame($canvas, $pos['x'], $pos['y'], $pos['width'], $pos['height']);
         }
 
-        // Clean up image resources
         foreach ($images as $img) {
             imagedestroy($img['resource']);
         }
@@ -485,14 +436,11 @@ class ImageProcessingService
      */
     private function addImageFrame($canvas, int $x, int $y, int $width, int $height): void
     {
-        // Add professional border
         $borderWidth = 3;
         $borderColor = imagecolorallocate($canvas, 240, 240, 240);
         $innerBorderColor = imagecolorallocate($canvas, 255, 255, 255);
 
-        // Outer border
         imagerectangle($canvas, $x - $borderWidth, $y - $borderWidth, $x + $width + $borderWidth, $y + $height + $borderWidth, $borderColor);
-        // Inner border for depth
         imagerectangle($canvas, $x - 1, $y - 1, $x + $width + 1, $y + $height + 1, $innerBorderColor);
     }
 
@@ -512,7 +460,6 @@ class ImageProcessingService
 
         switch ($layout) {
             case 'full_bleed':
-                // Full width, top portion
                 $targetWidth = $canvasWidth;
                 $targetHeight = (int)($canvasHeight * 0.7); // 70% of height
                 $targetHeight = (int)($img['height'] * $targetWidth / $img['width']);
@@ -525,7 +472,6 @@ class ImageProcessingService
                 break;
 
             case 'centered':
-                // Centered with padding
                 $padding = 40;
                 $targetWidth = $canvasWidth - ($padding * 2);
                 $targetHeight = (int)($img['height'] * $targetWidth / $img['width']);
@@ -1007,97 +953,6 @@ class ImageProcessingService
         return in_array($text, $categories['important']);
     }
 
-    /**
-     * Extract text elements from category details
-     */
-    private function extractTextFromDetails(?string $categoryDetails): array
-    {
-        if (empty($categoryDetails)) {
-            return [];
-        }
-
-        $textElements = [];
-
-        // Extract destinations/locations
-        if (preg_match_all('/\b(?:in|for|to|visit|travel|tour)\s+([a-z]+(?:\s+[a-z]+){0,3})/i', $categoryDetails, $matches)) {
-            foreach ($matches[1] as $match) {
-                $location = trim($match);
-                $skipWords = ['the', 'a', 'an', 'and', 'or', 'with', 'add'];
-                $words = explode(' ', strtolower($location));
-                $validWords = array_filter($words, function($word) use ($skipWords) {
-                    return !in_array($word, $skipWords) && strlen($word) > 2;
-                });
-                if (!empty($validWords)) {
-                    $textElements[] = ucwords(implode(' ', $validWords));
-                }
-            }
-        }
-
-        // Extract discount percentages
-        if (preg_match_all('/(?:add\s+)?(\d+)\s*%?\s*(?:off|discount|disc|percent)/i', $categoryDetails, $matches)) {
-            foreach ($matches[1] as $match) {
-                $textElements[] = trim($match) . '% OFF';
-            }
-        }
-
-        // Extract agency/company names
-        if (preg_match_all('/add\s+(?:agency\s+name|company\s+name|name)\s+([a-z]+(?:\s+(?:and|tour|travels|travel|agency|company)?\s*[a-z]+){1,5})/i', $categoryDetails, $matches)) {
-            foreach ($matches[1] as $match) {
-                $name = trim($match);
-                if (!empty($name) && strlen($name) > 3) {
-                    $textElements[] = ucwords($name);
-                }
-            }
-        }
-
-        // Extract quoted text
-        if (preg_match_all('/"([^"]+)"|\'([^\']+)\'/', $categoryDetails, $matches)) {
-            foreach ($matches[1] as $match) {
-                if (!empty($match)) {
-                    $textElements[] = trim($match);
-                }
-            }
-            foreach ($matches[2] as $match) {
-                if (!empty($match)) {
-                    $textElements[] = trim($match);
-                }
-            }
-        }
-
-        // Extract important phrases (sentences with keywords like "grand opening", "ceremony", etc.)
-        $importantKeywords = ['grand opening', 'ceremony', 'sale', 'offer', 'special', 'event', 'announcement'];
-        foreach ($importantKeywords as $keyword) {
-            if (stripos($categoryDetails, $keyword) !== false) {
-                // Extract sentence containing keyword
-                $sentences = preg_split('/[.!?]+/', $categoryDetails);
-                foreach ($sentences as $sentence) {
-                    if (stripos($sentence, $keyword) !== false) {
-                        $sentence = trim($sentence);
-                        if (strlen($sentence) > 10 && strlen($sentence) < 100) {
-                            $textElements[] = ucfirst($sentence);
-                        }
-                    }
-                }
-            }
-        }
-
-        // If no specific elements found, extract key phrases (capitalized words or important terms)
-        if (empty($textElements)) {
-            // Extract capitalized phrases (likely important)
-            if (preg_match_all('/\b[A-Z][a-z]+(?:\s+[A-Z][a-z]+){1,3}\b/', $categoryDetails, $matches)) {
-                foreach ($matches[0] as $match) {
-                    if (strlen($match) > 5 && strlen($match) < 50) {
-                        $textElements[] = $match;
-                    }
-                }
-            }
-        }
-
-        return array_values(array_unique(array_filter($textElements, function($element) {
-            $trimmed = trim($element);
-            return !empty($trimmed) && strlen($trimmed) > 2;
-        })));
-    }
 
     /**
      * Group text elements into logical blocks (same size within blocks)
