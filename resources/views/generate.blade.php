@@ -7,7 +7,6 @@
     <h1 class="h3 fw-bold mb-4">Generate SVG Templates</h1>
 
     <div x-data="generatorForm()" x-init="init()" class="bg-white border rounded p-3">
-        <!-- Category Selection -->
         <div class="mb-6">
             <label class="form-label">Category</label>
             <div class="row g-3">
@@ -23,7 +22,6 @@
                     <input type="text" x-model="categoryName" @input="if(categoryName) { selectedCategoryId = ''; }" placeholder="Or enter new category name" class="form-control">
                 </div>
             </div>
-            <!-- Category Details Field -->
             <div class="mt-3">
                 <label class="form-label">Category Details (Optional)</label>
                 <textarea x-model="categoryDetails" 
@@ -32,7 +30,6 @@
             </div>
         </div>
 
-        <!-- Image Upload -->
         <div class="mb-6">
             <label class="form-label">Sample Images (Optional - You can upload multiple images)</label>
             <div class="border border-2 border-secondary rounded p-4 text-center" 
@@ -65,7 +62,6 @@
             </div>
         </div>
 
-        <!-- Printing Dimensions -->
         <div class="mb-6">
             <label class="form-label">Printing Dimensions (Optional)</label>
             <div class="row g-3">
@@ -93,17 +89,14 @@
             </select>
         </div>
 
-        <!-- Structured Design Preferences -->
         <div class="mb-4 border rounded p-3 bg-light">
             <h5 class="mb-3">Design Preferences (Optional - For Structured Generation)</h5>
             
-            <!-- Project Name -->
             <div class="mb-3">
                 <label class="form-label">Project/Campaign Name</label>
                 <input type="text" x-model="projectName" class="form-control" placeholder="e.g., Summer Sale Campaign">
             </div>
 
-            <!-- Template Type -->
             <div class="mb-3">
                 <label class="form-label">Template Type</label>
                 <select x-model="templateType" class="form-select">
@@ -117,14 +110,12 @@
                 </select>
             </div>
 
-            <!-- Keywords -->
             <div class="mb-3">
                 <label class="form-label">Keywords</label>
                 <input type="text" x-model="keywords" class="form-control" placeholder="e.g., plumbing, plumber, emergency service">
                 <small class="text-muted">Comma-separated keywords describing your design. Text blocks will be automatically generated based on category and keywords.</small>
             </div>
 
-            <!-- Font Family -->
             <div class="mb-3">
                 <label class="form-label">Font Family</label>
                 <select x-model="fontFamily" class="form-select">
@@ -138,7 +129,6 @@
                 </select>
             </div>
 
-            <!-- Color Theme & Background -->
             <div class="row mb-3">
                 <div class="col-md-6">
                     <label class="form-label">Color Theme</label>
@@ -166,7 +156,6 @@
                 </div>
             </div>
 
-            <!-- Image Style -->
             <div class="mb-3">
                 <label class="form-label">Image Style</label>
                 <select x-model="imageStyle" class="form-select">
@@ -179,7 +168,6 @@
                 </select>
             </div>
 
-            <!-- Preview Prompt Button -->
             <div class="mb-3">
                 <button type="button" @click="previewPrompts()" :disabled="loading || !canPreviewPrompts()" class="btn btn-outline-info">
                     👁️ Preview GPT-4 Prompts
@@ -187,7 +175,6 @@
                 <small class="text-muted d-block mt-1">See what prompts GPT-4 will generate before creating templates</small>
             </div>
 
-            <!-- Preview Prompts Display -->
             <div x-show="previewedPrompts.length > 0" class="mt-3 p-3 bg-white border rounded">
                 <h6>Preview Prompts:</h6>
                 <template x-for="(prompt, index) in previewedPrompts" :key="index">
@@ -199,14 +186,11 @@
             </div>
         </div>
 
-
-        <!-- Template Count -->
         <div class="mb-3">
             <label class="form-label">Number of Templates</label>
             <input type="number" x-model="templateCount" min="1" max="10" value="1" class="form-control" style="max-width:150px">
         </div>
 
-        <!-- Submit Button -->
         <button @click="generateTemplates()" :disabled="loading || (!selectedCategoryId && !categoryName)" class="btn btn-primary w-100">
             <template x-if="!loading">
                 <span>Generate Template</span>
@@ -219,7 +203,6 @@
             </template>
         </button>
 
-        <!-- Loading Progress Indicator -->
         <div x-show="loading" class="mt-3">
             <div class="progress" style="height: 25px;">
                 <div class="progress-bar progress-bar-striped progress-bar-animated" 
@@ -228,7 +211,7 @@
                      aria-valuenow="100" 
                      aria-valuemin="0" 
                      aria-valuemax="100">
-                    GPT-4 creating refined prompts → DALL-E 3 generating realistic template...
+                    GPT-4 creating refined prompts → GPT Image 1 generating realistic template...
                 </div>
             </div>
             <p class="text-center text-muted small mt-2">
@@ -236,7 +219,6 @@
             </p>
         </div>
 
-        <!-- Error Message -->
         <div x-show="error" class="mt-4 p-4 bg-red-50 border border-red-300 rounded-lg">
             <div class="flex items-start">
                 <svg class="h-5 w-5 text-red-600 mt-0.5 mr-3 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
@@ -255,7 +237,6 @@
         </div>
     </div>
 
-    <!-- Generated Templates -->
     <div x-show="generatedTemplates.length > 0" class="mt-4">
        
         <div class="row g-3">
@@ -367,13 +348,11 @@ function generatorForm() {
             this.uploadedImages.splice(index, 1);
         },
 
-        // Check if can preview prompts
         canPreviewPrompts() {
             return (this.selectedCategoryId || this.categoryName) && 
                    (this.templateType || this.keywords);
         },
 
-        // Preview GPT-4 prompts
         async previewPrompts() {
             if (!this.canPreviewPrompts()) {
                 this.error = 'Please fill in at least category and one design preference (template type or keywords)';
@@ -432,19 +411,16 @@ function generatorForm() {
             
             if (this.selectedCategoryId) {
                 formData.append('category_id', this.selectedCategoryId);
-                // If details provided for existing category, send it to update
                 if (this.categoryDetails) {
                     formData.append('category_details', this.categoryDetails);
                 }
             } else if (this.categoryName) {
                 formData.append('category_name', this.categoryName);
-                // Include details when creating new category
                 if (this.categoryDetails) {
                     formData.append('category_details', this.categoryDetails);
                 }
             }
 
-            // Handle multiple images
             if (this.uploadedImages.length > 0) {
                 this.uploadedImages.forEach((img, index) => {
                     if (img.file) {
@@ -452,7 +428,6 @@ function generatorForm() {
                     }
                 });
             } else if (this.uploadedImage && this.uploadedImage.file) {
-                // Backward compatibility with single image
                 formData.append('image', this.uploadedImage.file);
             }
 
@@ -465,11 +440,7 @@ function generatorForm() {
             }
 
             formData.append('template_count', this.templateCount);
-            
-            // Always use GPT-4 refined prompts → DALL-E 3 (no method selection needed)
-            formData.append('use_dalle3', '0'); // false = use GPT-4 refined prompts
 
-            // Add structured design preferences if provided
             if (this.projectName) {
                 formData.append('project_name', this.projectName);
             }
@@ -506,11 +477,9 @@ function generatorForm() {
                 if (contentType.includes('application/json')) {
                     const data = await response.json();
                     if (response.ok) {
-                        // Redirect to templates page with success message
                         const templateCount = Array.isArray(data.templates) ? data.templates.length : 0;
                         let redirectUrl = `/templates?success=1&count=${templateCount}`;
                         
-                        // If category is set, include it in redirect
                         if (data.category && data.category.id) {
                             redirectUrl += `&category_id=${data.category.id}`;
                         }

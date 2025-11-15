@@ -28,7 +28,6 @@ class GenerationController extends Controller
      */
     public function generate(Request $request): JsonResponse
     {
-        // Allow longer-running AI generation without hitting PHP's 60s limit in dev
         \set_time_limit(300);
 
         $request->validate([
@@ -43,8 +42,6 @@ class GenerationController extends Controller
             'unit' => 'nullable|in:mm,cm,inches,in,pixels,px',
             'standard_size' => 'nullable|string',
             'template_count' => 'nullable|integer|min:1|max:10',
-            'use_dalle3' => 'nullable|boolean',
-            // Structured design preferences
             'project_name' => 'nullable|string|max:255',
             'template_type' => 'nullable|in:poster,banner,brochure,postcard,flyer,social',
             'keywords' => 'nullable|string|max:500',
@@ -58,10 +55,8 @@ class GenerationController extends Controller
         try {
             DB::beginTransaction();
 
-            // Get or create category
             if ($request->category_id) {
                 $category = Category::findOrFail($request->category_id);
-                // Update category details if provided
                 if ($request->has('category_details') && $request->category_details) {
                     $category->update(['details' => $request->category_details]);
                 }
@@ -70,7 +65,6 @@ class GenerationController extends Controller
                     ['name' => $request->category_name],
                     ['details' => $request->category_details ?? null]
                 );
-                // If category already exists and details are provided, update details
                 if (!$category->wasRecentlyCreated && $request->has('category_details') && $request->category_details) {
                     $category->update(['details' => $request->category_details]);
                 }
@@ -78,12 +72,10 @@ class GenerationController extends Controller
                 return response()->json(['error' => 'Category ID or name is required'], 400);
             }
 
-            // Handle image upload(s) - support both single and multiple images
             $imagePath = null;
             $imagePaths = [];
 
             if ($request->hasFile('images') && is_array($request->file('images'))) {
-                // Multiple images provided
                 foreach ($request->file('images') as $file) {
                     if ($file && $file->isValid()) {
                         $storedPath = $this->imageService->storeImage($file, $category->name);
@@ -93,14 +85,12 @@ class GenerationController extends Controller
                     }
                 }
             } elseif ($request->hasFile('image')) {
-                // Single image provided (backward compatibility)
                 $imagePath = $this->imageService->storeImage($request->file('image'), $category->name);
                 if ($imagePath) {
                     $imagePaths = [$imagePath];
                 }
             }
 
-            // Calculate printing dimensions
             $printingDimensions = [];
             if ($request->standard_size) {
                 $standardSize = $this->dimensionCalculator->getStandardSize($request->standard_size);
@@ -115,16 +105,13 @@ class GenerationController extends Controller
                 ];
             }
 
-            // Create generation job
             $job = GenerationJob::create([
                 'category_id' => $category->id,
                 'status' => 'processing',
                 'request_data' => $request->all(),
             ]);
 
-            // Generate templates
             $templateCount = $request->template_count ?? 1;
-            $useDalle3 = filter_var($request->use_dalle3 ?? false, FILTER_VALIDATE_BOOLEAN);
 
             $designPreferences = null;
             if ($request->has('template_type') || $request->has('keywords')) {
@@ -154,7 +141,6 @@ class GenerationController extends Controller
                 $printingDimensions,
                 $templateCount,
                 $imagePaths,
-                $useDalle3,
                 $designPreferences
             );
 
@@ -187,7 +173,7 @@ class GenerationController extends Controller
             if (str_contains($errorMessage, 'Billing hard limit has been reached') ||
                 str_contains($errorMessage, 'billing_hard_limit_reached')) {
                 $errorMessage = 'OpenAI API billing limit reached. Please add credits to your OpenAI account or check your billing settings.';
-                $statusCode = 402; // Payment Required
+                $statusCode = 402;
             } elseif (str_contains($errorMessage, 'Invalid API key') ||
                       str_contains($errorMessage, 'authentication')) {
                 $errorMessage = 'Invalid OpenAI API key. Please check your API key in the .env file.';
@@ -234,7 +220,6 @@ class GenerationController extends Controller
         ]);
 
         try {
-            // Get category info
             $categoryName = '';
             $categoryDetails = '';
 
@@ -283,8 +268,6 @@ class GenerationController extends Controller
         \set_time_limit(300);
 
         $request->validate([
-            'use_dalle3' => 'nullable|boolean',
-            // Allow updating design preferences
             'template_type' => 'nullable|in:poster,banner,brochure,postcard,flyer,social',
             'keywords' => 'nullable|string|max:500',
             // text_blocks removed - now auto-generated by GPT-4o based on category and keywords
@@ -300,7 +283,6 @@ class GenerationController extends Controller
             $template = Template::with('category')->findOrFail($id);
             $category = $template->category;
 
-            // Get original design preferences or use new ones
             $designPreferences = $template->design_preferences ?? [];
 
             if ($request->has('template_type')) {
@@ -329,15 +311,12 @@ class GenerationController extends Controller
                 $designPreferences['category_details'] = $category->details ?? '';
             }
 
-            $useDalle3 = filter_var($request->use_dalle3 ?? true, FILTER_VALIDATE_BOOLEAN);
-
             $templates = $this->aiService->generateTemplates(
                 $category,
                 null,
                 $template->printing_dimensions ?? [],
                 1,
                 [],
-                $useDalle3,
                 !empty($designPreferences) ? $designPreferences : null
             );
 

@@ -6,7 +6,7 @@ A Laravel-based application for generating SVG templates using AI image generati
 
 -   Dynamic category management (create or select categories)
 -   Upload sample images for template generation
--   AI-powered image generation using OpenAI DALL-E 3
+-   AI-powered image generation using OpenAI GPT Image 1
 -   Printing dimension calculations (standard sizes or custom)
 -   SVG conversion and export
 -   Download individual or batch templates as SVG files
@@ -16,7 +16,7 @@ A Laravel-based application for generating SVG templates using AI image generati
 -   PHP 8.2+
 -   MySQL 5.7+ or MariaDB 10.3+
 -   Composer
--   OpenAI API Key (for DALL-E 3 image generation)
+-   OpenAI API Key (for GPT Image 1 image generation)
 -   GD extension (for image processing)
 
 ## Installation
@@ -124,7 +124,7 @@ php artisan serve
 
 ### OpenAI API
 
-The application uses OpenAI DALL-E 3 API for image generation. Make sure you have:
+The application uses OpenAI GPT Image 1 API for image generation. Make sure you have:
 
 -   A valid OpenAI API key
 -   Sufficient API credits
