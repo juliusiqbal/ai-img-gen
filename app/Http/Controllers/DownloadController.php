@@ -115,14 +115,11 @@ class DownloadController extends Controller
         $request->validate([
             'template_ids' => 'nullable|array',
             'template_ids.*' => 'exists:templates,id',
-            'project_name' => 'nullable|string',
         ]);
 
-        // Get templates - either by IDs or by project name
+        // Get templates - either by IDs or all templates
         if ($request->has('template_ids') && !empty($request->template_ids)) {
             $templates = Template::whereIn('id', $request->template_ids)->get();
-        } elseif ($request->has('project_name') && $request->project_name) {
-            $templates = Template::where('project_name', $request->project_name)->get();
         } else {
             $templates = Template::all();
         }
@@ -145,9 +142,7 @@ class DownloadController extends Controller
 
         foreach ($templates as $template) {
             if ($template->svg_path && file_exists(storage_path('app/public/' . $template->svg_path))) {
-                $filename = $template->project_name
-                    ? $template->project_name . '_' . $template->id . '_' . basename($template->svg_path)
-                    : 'template_' . $template->id . '_' . basename($template->svg_path);
+                $filename = 'template_' . $template->id . '_' . basename($template->svg_path);
                 $zip->addFile(
                     storage_path('app/public/' . $template->svg_path),
                     $filename
@@ -157,9 +152,7 @@ class DownloadController extends Controller
 
         $zip->close();
 
-        $zipName = $request->project_name
-            ? $request->project_name . '_templates.zip'
-            : 'all_templates.zip';
+        $zipName = 'all_templates.zip';
 
         return response()->download($zipPath, $zipName, [
             'Content-Type' => 'application/zip',

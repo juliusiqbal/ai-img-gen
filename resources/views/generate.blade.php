@@ -87,11 +87,6 @@
             <h5 class="mb-3">Design Preferences (Optional - For Structured Generation)</h5>
             
             <div class="mb-3">
-                <label class="form-label">Project/Campaign Name</label>
-                <input type="text" x-model="projectName" class="form-control" placeholder="e.g., Summer Sale Campaign">
-            </div>
-
-            <div class="mb-3">
                 <label class="form-label">Template Type</label>
                 <select x-model="templateType" class="form-select">
                     <option value="">Select template type</option>
@@ -121,33 +116,6 @@
                     <option value="times">Times New Roman</option>
                     <option value="courier">Courier</option>
                 </select>
-            </div>
-
-            <div class="row mb-3">
-                <div class="col-md-6">
-                    <label class="form-label">Color Theme</label>
-                    <select x-model="colorTheme" class="form-select">
-                        <option value="">Default</option>
-                        <option value="blue">Blue</option>
-                        <option value="red">Red</option>
-                        <option value="green">Green</option>
-                        <option value="orange">Orange</option>
-                        <option value="purple">Purple</option>
-                        <option value="black">Black</option>
-                        <option value="white">White</option>
-                    </select>
-                </div>
-                <div class="col-md-6">
-                    <label class="form-label">Background Color</label>
-                    <select x-model="backgroundColor" class="form-select">
-                        <option value="">Default</option>
-                        <option value="white">White</option>
-                        <option value="light-gray">Light Gray</option>
-                        <option value="light-blue">Light Blue</option>
-                        <option value="light-green">Light Green</option>
-                        <option value="cream">Cream</option>
-                    </select>
-                </div>
             </div>
 
             <div class="mb-3">
@@ -251,12 +219,9 @@ function generatorForm() {
         loading: false,
         error: null,
         generatedTemplates: [],
-        projectName: '',
         templateType: '',
         keywords: '',
         fontFamily: '',
-        colorTheme: '',
-        backgroundColor: '',
         previewedPrompts: [],
 
         async init() {
@@ -350,8 +315,6 @@ function generatorForm() {
                     template_type: this.templateType || null,
                     keywords: this.keywords || null,
                     font_family: this.fontFamily || null,
-                    color_theme: this.colorTheme || null,
-                    background_color: this.backgroundColor || null,
                     number_of_templates: this.templateCount,
                 };
 
@@ -413,9 +376,6 @@ function generatorForm() {
 
             formData.append('template_count', this.templateCount);
 
-            if (this.projectName) {
-                formData.append('project_name', this.projectName);
-            }
             if (this.templateType) {
                 formData.append('template_type', this.templateType);
             }
@@ -424,12 +384,6 @@ function generatorForm() {
             }
             if (this.fontFamily) {
                 formData.append('font_family', this.fontFamily);
-            }
-            if (this.colorTheme) {
-                formData.append('color_theme', this.colorTheme);
-            }
-            if (this.backgroundColor) {
-                formData.append('background_color', this.backgroundColor);
             }
 
             try {

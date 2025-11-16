@@ -625,8 +625,6 @@ Return ONLY the optimized prompt text, nothing else.";
             $keywords = $designPreferences['keywords'] ?? '';
             $fontFamily = $designPreferences['font_family'] ?? '';
             $fontSizes = $designPreferences['font_sizes'] ?? [];
-            $colorTheme = $designPreferences['color_theme'] ?? '';
-            $backgroundColor = $designPreferences['background_color'] ?? '';
             $imageStyles = ['realistic', 'professional', 'minimal', 'modern', 'classic'];
             $imageStyle = $imageStyles[array_rand($imageStyles)];
             $numberOfTemplates = $designPreferences['number_of_templates'] ?? 1;
@@ -670,12 +668,6 @@ Generate {$numberOfTemplates} unique, professional prompts that will create real
             }
             if ($fontFamily) {
                 $userPrompt .= "Font Family: {$fontFamily}\n";
-            }
-            if ($colorTheme) {
-                $userPrompt .= "Color Theme: {$colorTheme} (solid colors only, no gradients)\n";
-            }
-            if ($backgroundColor) {
-                $userPrompt .= "Background Color: {$backgroundColor} (solid color only)\n";
             }
             if ($imageStyle) {
                 $userPrompt .= "Image Style: {$imageStyle}\n";

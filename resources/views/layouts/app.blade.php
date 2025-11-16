@@ -9,6 +9,11 @@
     <script src="https://cdn.jsdelivr.net/npm/alpinejs@3.13.3/dist/cdn.min.js" defer></script>
     <style>
         [x-cloak] { display: none !important; }
+        .preview-modal-overlay {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
     </style>
 </head>
 <body class="bg-gray-50">

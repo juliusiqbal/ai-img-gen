@@ -69,10 +69,13 @@
                             <!-- Template Preview -->
                             <div class="border rounded p-2 bg-white mb-2 text-center" 
                                  style="height:200px; display:flex; align-items:center; justify-content:center; overflow:hidden;">
-                                <img :src="`${baseUrl}/storage/${template.svg_path}`" 
-                                     alt="Template" 
-                                     class="img-fluid" 
-                                     style="max-height:180px; object-fit:contain;" />
+                                <template x-if="template.original_image_path || template.svg_path">
+                                    <img :src="template.original_image_path ? (baseUrl + '/storage/' + template.original_image_path) : (baseUrl + '/storage/' + template.svg_path)" 
+                                         alt="Template" 
+                                         class="img-fluid" 
+                                         style="max-height:180px; object-fit:contain;"
+                                         onerror="this.onerror=null; this.style.display='none'; return false;" />
+                                </template>
                             </div>
 
                             <!-- Category Badge -->
@@ -84,7 +87,7 @@
                             <div class="d-flex flex-column gap-2 mb-2">
                                 <div class="d-flex gap-1">
                                     <button @click="previewTemplate(template)" class="btn btn-info btn-sm flex-fill">Preview</button>
-                                    <a :href="`/api/templates/${template.id}/download`" 
+                                    <a :href="'/api/templates/' + template.id + '/download'" 
                                        class="btn btn-primary btn-sm flex-fill">Download</a>
                                 </div>
                                 <div class="d-flex gap-1">
@@ -103,13 +106,9 @@
 
                             <!-- Template Info -->
                             <div class="small text-muted">
-                                <div x-show="template.project_name" class="fw-bold text-primary mb-1" x-text="template.project_name"></div>
                                 <div class="text-truncate" x-text="template.svg_path" title="template.svg_path"></div>
                                 <div x-show="template.printing_dimensions && template.printing_dimensions.width" class="mt-1">
-                                    <span x-text="template.printing_dimensions ? `${template.printing_dimensions.width} × ${template.printing_dimensions.height} ${template.printing_dimensions.unit || 'mm'}` : ''"></span>
-                                </div>
-                                <div x-show="template.generation_prompt" class="mt-1">
-                                    <button @click="showPrompt = template.id" class="btn btn-link btn-sm p-0 text-decoration-none">View Prompt</button>
+                                    <span x-text="template.printing_dimensions ? template.printing_dimensions.width + ' × ' + template.printing_dimensions.height + ' ' + (template.printing_dimensions.unit || 'mm') : ''"></span>
                                 </div>
                             </div>
                         </div>
@@ -117,8 +116,42 @@
                 </template>
             </div>
         </div>
+
+        <!-- Preview Modal -->
+        <div x-show="previewTemplateData" 
+             x-cloak
+             x-transition
+             class="preview-modal-overlay"
+             style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 1055; background: rgba(0,0,0,0.5);"
+             @click.self="closePreview()"
+             @keydown.escape.window="closePreview()"
+             tabindex="-1"
+             role="dialog"
+             aria-modal="true"
+             x-init="$watch('previewTemplateData', value => { if (value) { document.body.style.overflow = 'hidden'; } else { document.body.style.overflow = ''; } })">
+            <template x-if="previewTemplateData">
+                <div class="modal-dialog modal-lg modal-dialog-centered" @click.stop style="max-width: 90%; margin: 0;">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h5 class="modal-title">Template Preview</h5>
+                        </div>
+                        <div class="modal-body text-center" style="max-height: 80vh; overflow-y: auto;">
+                            <img :src="previewTemplateData.original_image_path ? (baseUrl + '/storage/' + previewTemplateData.original_image_path) : (baseUrl + '/storage/' + previewTemplateData.svg_path)" 
+                                 alt="Template Preview" 
+                                 class="img-fluid" 
+                                 style="max-height: 70vh; max-width: 100%; object-fit: contain;"
+                                 onerror="this.onerror=null; if(this.src.indexOf('svg') === -1 && this.src.indexOf('generated') > -1) { this.src = this.src.replace('generated/', 'svgs/').replace('.png', '.svg'); } else { this.style.display='none'; }" />
+                        </div>
+                        <div class="modal-footer justify-content-center">
+                            <button type="button" class="btn btn-secondary" @click.stop="closePreview()">Close</button>
+                        </div>
+                    </div>
+                </div>
+            </template>
+        </div>
     </div>
 </div>
+@endsection
 
 @push('scripts')
 <script>
@@ -133,7 +166,6 @@ function templatesPage() {
         showSuccess: false,
         successMessage: '',
         previewTemplateData: null,
-        showPrompt: null,
         regenerating: null,
 
         async init() {
@@ -245,7 +277,8 @@ function templatesPage() {
         },
 
         previewTemplate(template) {
-            this.previewTemplateData = template;
+            // Create a deep copy to avoid reactivity issues
+            this.previewTemplateData = JSON.parse(JSON.stringify(template));
         },
 
         closePreview() {
@@ -314,68 +347,5 @@ function templatesPage() {
 }
 </script>
 
-<!-- Preview Modal -->
-<div x-show="previewTemplateData" 
-     x-cloak
-     class="modal fade show" 
-     style="display: block; background: rgba(0,0,0,0.5);"
-     @click.self="closePreview()"
-     @keydown.escape.window="closePreview()">
-    <div class="modal-dialog modal-lg modal-dialog-centered">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title">Template Preview</h5>
-                <button type="button" class="btn-close" @click="closePreview()"></button>
-            </div>
-            <div class="modal-body text-center">
-                <template x-if="previewTemplateData">
-                    <div>
-                        <img :src="`${baseUrl}/storage/${previewTemplateData.svg_path}`" 
-                             alt="Template Preview" 
-                             class="img-fluid" 
-                             style="max-height: 70vh;" />
-                        <div class="mt-3" x-show="previewTemplateData.generation_prompt">
-                            <strong>Generation Prompt:</strong>
-                            <p class="small text-muted" x-text="previewTemplateData.generation_prompt"></p>
-                        </div>
-                    </div>
-                </template>
-            </div>
-            <div class="modal-footer">
-                <a :href="`/api/templates/${previewTemplateData?.id}/download`" 
-                   class="btn btn-primary">Download</a>
-                <button type="button" class="btn btn-secondary" @click="closePreview()">Close</button>
-            </div>
-        </div>
-    </div>
-</div>
-
-<!-- Prompt View Modal -->
-<div x-show="showPrompt" 
-     x-cloak
-     class="modal fade show" 
-     style="display: block; background: rgba(0,0,0,0.5);"
-     @click.self="showPrompt = null"
-     @keydown.escape.window="showPrompt = null">
-    <div class="modal-dialog modal-dialog-centered">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title">Generation Prompt</h5>
-                <button type="button" class="btn-close" @click="showPrompt = null"></button>
-            </div>
-            <div class="modal-body">
-                <template x-for="template in templates" :key="template.id">
-                    <div x-show="showPrompt === template.id">
-                        <p class="small" x-text="template.generation_prompt"></p>
-                    </div>
-                </template>
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" @click="showPrompt = null">Close</button>
-            </div>
-        </div>
-    </div>
-</div>
 @endpush
-@endsection
 

@@ -17,11 +17,29 @@ Route::get('/templates', function () {
 });
 
 // Serve storage files for Windows/XAMPP compatibility
+// This route must be placed before other routes to avoid conflicts
 Route::get('/storage/{path}', function ($path) {
+    // Sanitize the path to prevent directory traversal
+    $path = str_replace('..', '', $path);
+    $path = ltrim($path, '/');
+    
     $filePath = storage_path('app/public/' . $path);
     
+    // Check if file exists and is readable
     if (!file_exists($filePath)) {
-        abort(404);
+        \Log::info('Storage file not found', [
+            'requested_path' => $path,
+            'full_path' => $filePath,
+        ]);
+        abort(404, 'File not found: ' . $path);
+    }
+    
+    if (!is_readable($filePath)) {
+        \Log::warning('Storage file not readable', [
+            'path' => $path,
+            'full_path' => $filePath,
+        ]);
+        abort(403, 'File not accessible');
     }
     
     // Determine MIME type
@@ -38,8 +56,16 @@ Route::get('/storage/{path}', function ($path) {
         $mimeType = $mimeTypes[strtolower($extension)] ?? 'application/octet-stream';
     }
     
-    return response()->file($filePath, [
+    // Set proper headers
+    $headers = [
         'Content-Type' => $mimeType,
         'Cache-Control' => 'public, max-age=31536000',
-    ]);
-})->where('path', '.*');
+    ];
+    
+    // For SVG files, ensure proper content type
+    if (strtolower(pathinfo($filePath, PATHINFO_EXTENSION)) === 'svg') {
+        $headers['Content-Type'] = 'image/svg+xml';
+    }
+    
+    return response()->file($filePath, $headers);
+})->where('path', '.*')->name('storage.local');

@@ -155,7 +155,6 @@ class AIImageGenerationService
                     ];
 
                     if (!empty($designPreferences)) {
-                        $templateData['project_name'] = $designPreferences['project_name'] ?? null;
                         $templateData['generation_prompt'] = $imageData['generation_prompt'] ?? $imageData['revised_prompt'] ?? null;
                         $templateData['design_preferences'] = $designPreferences;
                     }
